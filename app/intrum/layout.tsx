@@ -1,4 +1,5 @@
 import { IntrumNav } from "./IntrumNav";
+import { ResetButton } from "./ResetButton";
 
 // Intern visning for Intrum: innsikt, dataflyt, prosjektplan og prosess
 export default function IntrumLayout({ children }: { children: React.ReactNode }) {
@@ -6,7 +7,10 @@ export default function IntrumLayout({ children }: { children: React.ReactNode }
     <div>
       <div className="bg-ink text-white">
         <div className="mx-auto max-w-6xl px-4 pt-4">
-          <div className="text-xs uppercase tracking-wider text-brand-200">Intrum – intern visning</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs uppercase tracking-wider text-brand-200">Intrum – intern visning</div>
+            <ResetButton />
+          </div>
           <IntrumNav />
         </div>
       </div>

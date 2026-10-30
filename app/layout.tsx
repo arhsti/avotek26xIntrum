@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <div className="bg-ink text-xs text-brand-100 py-1.5 px-4 flex justify-center gap-3">
           <span>Prototype – alle data og integrasjoner er fiktive</span>
-          <Link href="/intrum" className="underline hover:text-white">Intrum-visning →</Link>
+          <Link href="/intrum/dataflyt" className="underline hover:text-white">Intrum-visning →</Link>
         </div>
         <header className="bg-white border-b border-black/5">
           <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">

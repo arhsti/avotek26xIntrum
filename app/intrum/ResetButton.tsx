@@ -20,7 +20,7 @@ export function ResetButton() {
   }
 
   return (
-    <button onClick={reset} disabled={busy} className="rounded-lg ring-1 ring-red-300 text-red-700 px-3 py-1.5 text-sm hover:bg-red-50 disabled:opacity-50">
+    <button onClick={reset} disabled={busy} className="rounded-lg ring-1 ring-white/30 text-brand-100 px-3 py-1 text-xs hover:bg-white/10 disabled:opacity-50">
       {busy ? "Nullstiller …" : "Nullstill demodata"}
     </button>
   );
