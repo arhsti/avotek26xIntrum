@@ -54,7 +54,7 @@ export function Portal() {
   useEffect(() => {
     let oid = new URLSearchParams(window.location.search).get("id");
     try {
-      oid ??= localStorage.getItem("intrum-onboarding-id");
+      oid ??= localStorage.getItem("intrum-portal-id") ?? localStorage.getItem("intrum-onboarding-id");
     } catch {}
     setId(oid);
     if (oid) load(oid);

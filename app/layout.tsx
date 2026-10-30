@@ -28,7 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="flex items-center gap-1 text-sm">
               <Link href="/priser" className="px-3 py-2 rounded-lg hover:bg-brand-50">Priser</Link>
               <Link href="/portal" className="hidden sm:block px-3 py-2 rounded-lg hover:bg-brand-50">Kundeportal</Link>
-              <Link href="/onboarding" className="ml-1 px-4 py-2 rounded-lg bg-brand-600 text-white font-medium hover:bg-brand-700">Bli kunde</Link>
+              {/* Vanlig lenke: laster siden på nytt og starter alltid en ny registrering */}
+              <a href="/onboarding?ny=1" className="ml-1 px-4 py-2 rounded-lg bg-brand-600 text-white font-medium hover:bg-brand-700">Bli kunde</a>
             </nav>
           </div>
         </header>

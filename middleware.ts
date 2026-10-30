@@ -9,4 +9,4 @@ export function middleware(req: NextRequest) {
   return new NextResponse("Krever innlogging", { status: 401, headers: { "WWW-Authenticate": 'Basic realm="Intrum admin"' } });
 }
 
-export const config = { matcher: ["/intrum", "/intrum/:path*"] };
+export const config = { matcher: ["/intrum", "/intrum/:path*", "/api/intrum/:path*"] };

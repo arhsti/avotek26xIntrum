@@ -18,6 +18,7 @@ interface Store {
   update<T extends object>(c: Collection, id: string, patch: Partial<T>): Promise<Row<T> | null>;
   get<T extends object>(c: Collection, id: string): Promise<Row<T> | null>;
   list<T extends object>(c: Collection, limit?: number): Promise<Row<T>[]>;
+  clear(c: Collection): Promise<void>;
 }
 
 // ---------- Postgres ----------
@@ -87,6 +88,10 @@ const pgStore: Store = {
       ORDER BY created_at DESC LIMIT ${limit}`;
     return rows.map((r) => fromPg(r));
   },
+  async clear(c) {
+    const db = await sql();
+    await db`DELETE FROM records WHERE collection = ${c}`;
+  },
 };
 
 // ---------- JSON-fil ----------
@@ -153,6 +158,11 @@ const fileStore: Store = {
           .slice(0, limit),
       false,
     );
+  },
+  clear(c) {
+    return withFile((db) => {
+      delete db[c];
+    }, true);
   },
 };
 

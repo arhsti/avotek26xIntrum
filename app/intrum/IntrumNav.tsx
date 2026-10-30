@@ -7,6 +7,7 @@ const TABS = [
   { href: "/intrum", label: "Innsikt" },
   { href: "/intrum/dataflyt", label: "Dataflyt" },
   { href: "/intrum/prosjektplan", label: "Prosjektplan" },
+  { href: "/intrum/implementering", label: "Implementering med Avo" },
   { href: "/intrum/prosess", label: "Prosess i dag vs. ny" },
   { href: "/intrum/gevinster", label: "Gevinster" },
   { href: "/intrum/arkitektur", label: "Arkitektur" },

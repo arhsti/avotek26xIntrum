@@ -9,12 +9,14 @@ import { SubmitStep } from "./SubmitStep";
 import { DoneStep } from "./DoneStep";
 
 const STORAGE_KEY = "intrum-onboarding-id";
+// Siste fullførte kunde – brukes av kundeportalen
+const PORTAL_KEY = "intrum-portal-id";
 
-function storage(action: "get" | "set" | "remove", value?: string) {
+function storage(action: "get" | "set" | "remove", value?: string, key = STORAGE_KEY) {
   try {
-    if (action === "get") return localStorage.getItem(STORAGE_KEY);
-    if (action === "set") localStorage.setItem(STORAGE_KEY, value!);
-    else localStorage.removeItem(STORAGE_KEY);
+    if (action === "get") return localStorage.getItem(key);
+    if (action === "set") localStorage.setItem(key, value!);
+    else localStorage.removeItem(key);
   } catch {}
   return null;
 }
@@ -25,10 +27,14 @@ export function Wizard() {
   const [view, setView] = useState<StepKey>("company");
 
   const start = useCallback(async (fresh = false) => {
-    const fromUrl = new URLSearchParams(window.location.search).get("id");
-    const id = fresh ? null : fromUrl ?? storage("get");
-    let loaded: { onboarding: OnboardingRow; draftCase: DebtCaseRow | null } | null = null;
-    if (id) loaded = await api<typeof loaded>(`/api/onboarding/${id}`, undefined, "GET").catch(() => null);
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("id");
+    const id = fresh || params.has("ny") ? null : fromUrl ?? storage("get");
+    type Loaded = { onboarding: OnboardingRow; draftCase: DebtCaseRow | null };
+    let loaded: Loaded | null = null;
+    if (id) loaded = await api<Loaded>(`/api/onboarding/${id}`, undefined, "GET").catch(() => null);
+    // En fullført registrering lagret i nettleseren gir ny registrering – bare uferdige fortsetter
+    if (loaded && !fromUrl && loaded.onboarding.status === "completed") loaded = null;
     if (!loaded) loaded = { onboarding: await api<OnboardingRow>("/api/onboarding"), draftCase: null };
     const ob = loaded!.onboarding;
     storage("set", ob.id);
@@ -52,6 +58,10 @@ export function Wizard() {
     },
     [o],
   );
+
+  useEffect(() => {
+    if (o?.status === "completed") storage("set", o.id, PORTAL_KEY);
+  }, [o?.id, o?.status]);
 
   if (!o) {
     return (

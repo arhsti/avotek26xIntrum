@@ -3,6 +3,7 @@ import { db, dbBackend } from "@/lib/db";
 import { STEPS, STEP_LABELS, type DebtCase, type IntegrationLog, type Onboarding } from "@/lib/types";
 import { formatOrgNr, nok } from "@/lib/validation";
 import { AutoRefresh } from "./AutoRefresh";
+import { ResetButton } from "./ResetButton";
 
 export const metadata: Metadata = { title: "Innsikt – Intrum SMB-onboarding (prototype)" };
 export const dynamic = "force-dynamic";
@@ -109,10 +110,13 @@ export default async function Admin() {
           <h1 className="text-3xl font-bold tracking-tight">Innsikt</h1>
           <p className="text-ink-soft mt-1">Konvertering fra første besøk til innsendt sak. Oppdateres automatisk.</p>
         </div>
-        <span className="text-xs text-ink-soft">
-          Database: <b>{dbBackend}</b>
-          {dbBackend === "tmp-file" && " (midlertidig – sett DATABASE_URL for varig lagring)"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-ink-soft">
+            Database: <b>{dbBackend}</b>
+            {dbBackend === "tmp-file" && " (midlertidig – sett DATABASE_URL for varig lagring)"}
+          </span>
+          <ResetButton />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

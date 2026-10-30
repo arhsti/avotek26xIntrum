@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { GoalStats } from "@/components/GoalStats";
 
 export const metadata: Metadata = { title: "I dag vs. ny flyt – Intrum (prototype)" };
 
@@ -105,22 +106,9 @@ export default function Page() {
         I dag går SMB-kunder gjennom seks faser med flere team før første sak. I den nye flyten blir første sak en del av onboardingen, og integrasjon
         kommer etterpå.
       </p>
-      <div className="mt-8 grid sm:grid-cols-3 gap-4">
-        {[
-          { k: "Manuelle steg", a: "7+", b: "0" },
-          { k: "Roller involvert per ny kunde", a: "4", b: "0 – kun ved avvik" },
-          { k: "Tid til første sak", a: "Dager–uker", b: "Minutter" },
-        ].map((s) => (
-          <div key={s.k} className="rounded-2xl bg-white ring-1 ring-black/5 p-5">
-            <div className="text-sm text-ink-soft">{s.k}</div>
-            <div className="mt-2 flex items-baseline gap-3">
-              <span className="text-lg text-ink-soft line-through">{s.a}</span>
-              <span className="text-2xl font-bold text-brand-700">{s.b}</span>
-            </div>
-          </div>
-        ))}
+      <div className="mt-8">
+        <GoalStats />
       </div>
-      <p className="mt-2 text-xs text-ink-soft">Anslag til diskusjon, basert på dagens prosessbeskrivelse.</p>
 
       <section className="mt-10">
         <h2 className="text-xl font-semibold">Kundens reise på intrum.no i dag</h2>
