@@ -72,69 +72,84 @@ const SEQUENCE: { who: string; what: string }[] = [
   { who: "Process API → KYC, Kontoregisteret", what: "Kundekontroll og verifisering av utbetalingskonto" },
   { who: "Skjema → BankID-signering", what: "Intrum Optimal signeres av foreslått person – eller sendes til medsignatar eller fullmektig. Webhook når alle har signert" },
   { who: "Process API → Service Bus", what: "Hendelsen «KundeSignert» publiseres – skjemaet svarer kunden med en gang" },
-  { who: "Workers → Salesforce, Pink, portal, e-post", what: "Kunde og avtale i Salesforce, klient i Pink via adapter, portalbruker og velkomst. Idempotent med retry" },
-  { who: "Skjema → Process API → Pink", what: "Første sak: kravkontroll, så «SakMottatt» til Pink-adapteren. Saksnummer tilbake til kunden" },
-  { who: "Pink → Process API → portal og ERP", what: "Hendelser på saken blir tidslinje i portalen og status i ERP-et" },
+  { who: "Workers → Salesforce, Pink, portal, e-post", what: "Kunde og avtale i Salesforce og velkomst. Klient til Pink via kø i fase 1 – adapter i tillegg A. Idempotent med retry" },
+  { who: "Skjema → Process API → Pink", what: "Første sak: kravkontroll, så «SakMottatt» til Pink – via kø i fase 1, adapter i tillegg A" },
+  { who: "Pink → Process API → portal og ERP", what: "Tillegg A og fase 2: hendelser på saken blir tidslinje i portalen og status i ERP-et" },
 ];
 
 // ---------- Team og plan ----------
 
 const TEAM = [
-  { role: "Engasjementsleder / produktleder", share: "50 %" },
-  { role: "Tjenestedesigner / UX", share: "100 %" },
-  { role: "Tech lead – Azure og .NET", share: "100 %" },
-  { role: "Fullstack-utviklere – .NET og React", share: "2 × 100 %" },
-  { role: "Integrasjonsutvikler – MuleSoft", share: "100 %" },
-  { role: "Test og kvalitet", share: "50 %" },
+  { role: "Tech lead – arkitektur, Azure og .NET", note: "Også kontaktpunkt mot Intrum" },
+  { role: "Fullstack-utvikler – .NET og React", note: "Skjemaet og BFF" },
+  { role: "Integrasjonsutvikler – MuleSoft", note: "Brønnøysund, BankID, Salesforce" },
 ];
 
-const INTRUM_ROLES = ["Produkteier (beslutter og prioriterer)", "MuleSoft-plattformteam", "Pink-team (adapter og import)", "Juridisk og compliance", "Digital Sales og kundesupport (unntak og oppfølging)", "Sikkerhet og personvern"];
+const AI_WAYS = [
+  "Prototypen er spesifikasjonen: flyt, datamodell, regler og tester finnes allerede",
+  "AI-assistert utvikling av kode, tester og API-kontrakter – mennesker reviewer og eier alt som går i produksjon",
+  "Testene fra prototypen kjøres automatisk mot hver versjon",
+  "Ingen kundedata i AI-verktøyene, og Intrums retningslinjer for kode og sikkerhet følges",
+];
 
-const SPRINTS: { when: string; name: string; goal: string; deliver: string[]; intrum: string }[] = [
+const INTRUM_ROLES = ["Produkteier (beslutter og prioriterer)", "MuleSoft-plattformteam", "Juridisk og compliance", "Digital Sales (pilot og unntak)", "Sikkerhet og personvern"];
+
+const PREP = ["BankID-leverandør og avtale", "Tilganger til Azure, MuleSoft og Salesforce", "Juridisk avklaring av digital signering og fullmakt", "Pilotkunder og KPI-baseline"];
+
+const WEEKS = 8;
+
+const SPRINTS: { from: number; to: number; name: string; deliver: string[] }[] = [
   {
-    when: "Uke 46–49 · 2026",
-    name: "Oppstart og avklaring",
-    goal: "Klar arkitektur, avtaler og backlog",
-    deliver: ["Målarkitektur og API-kontrakter godkjent", "Brønnøysund og BankID testet mot ekte testmiljø", "Juridisk avklaring av digital signering og fullmakt", "Baseline for KPI-ene"],
-    intrum: "Tilgang til Azure, MuleSoft og Salesforce. Valg av BankID-leverandør",
+    from: 0,
+    to: 2,
+    name: "Fundament og Brønnøysund",
+    deliver: ["Skjemaet på intrum.no med faktura først", ".NET-backend og miljøer i Azure", "Brønnøysund System API i MuleSoft: enhet og roller"],
   },
   {
-    when: "Sprint 1–3 · jan–feb 2027",
-    name: "Skjema, Brønnøysund og BankID",
-    goal: "Kunden kan registrere seg og signere",
-    deliver: ["Onboarding-app med faktura først", "Brønnøysund System API og signaturforslag", "BankID-innlogging og signering", "Kunde og avtale automatisk i Salesforce"],
-    intrum: "MuleSoft-miljøer, testbrukere i BankID",
+    from: 2,
+    to: 4,
+    name: "BankID og signering",
+    deliver: ["BankID-innlogging", "Signaturforslag fra Brønnøysund", "Signering alene, i fellesskap og med fullmakt", "Kundekontroll (KYC)"],
   },
   {
-    when: "Sprint 4–6 · mar–apr 2027",
-    name: "Første sak og pilot",
-    goal: "Første pilotkunde sender sak samme dag",
-    deliver: ["Saksskjema med kravkontroll", "Pink via kø – manuell registrering bak i pilot", "Pilot side om side med dagens skjema"],
-    intrum: "Pilotkunder, Digital Sales med i oppfølging",
+    from: 4,
+    to: 6,
+    name: "Første sak og Salesforce",
+    deliver: ["Saksskjema med kravkontroll", "Kunde, avtale og oppgaver automatisk i Salesforce", "Kø mot Pink – registreres med dagens rutine til tillegg A er på plass"],
   },
   {
-    when: "Sprint 7–10 · mai–jun 2027",
+    from: 6,
+    to: 8,
+    name: "Test og pilot",
+    deliver: ["Ende-til-ende-tester, sikkerhet og universell utforming", "Måling av trakt og tid til første sak", "Produksjonssetting og pilot"],
+  },
+];
+
+// Senere faser – ikke en del av de 8 ukene, prises når de er aktuelle
+const ADDONS: { tag: string; name: string; goal: string; deliver: string[]; how: string }[] = [
+  {
+    tag: "Tillegg A",
     name: "Pink og portal automatisk",
     goal: "Ingen manuelle steg etter signering",
-    deliver: ["Pink-adapter for klient og sak", "Portal med BankID-innlogging og tidslinje", "Oppfølgingsliste for kundesupport"],
-    intrum: "Pink-team: importformat og testmiljø",
+    deliver: ["Pink-adapter for klient og sak", "Kundeportal med BankID-innlogging og tidslinje", "Oppfølgingsliste for kundesupport"],
+    how: "Når skjema og integrasjon er i drift. Trenger Pink-teamets importformat og testmiljø",
   },
   {
-    when: "Sprint 11–16 · aug–okt 2027",
-    name: "Partner-API og Tripletex",
-    goal: "ERP-kunder aktiverer selv",
+    tag: "Fase 2",
+    name: "ERP-partnere",
+    goal: "ERP-kunder aktiverer selv og sender saker via API",
     deliver: ["Partner-API i MuleSoft", "Tripletex fra fil til API", "Status tilbake til ERP"],
-    intrum: "Partneravtaler, start med Tripletex",
+    how: "Prosjektbasert per partner – start med Tripletex",
   },
 ];
 
-const BACKLOG: { epic: string; stories: string[] }[] = [
+const BACKLOG: { epic: string; stories: string[]; later?: boolean }[] = [
   { epic: "Skjema på intrum.no", stories: ["Last opp faktura og få feltene fylt ut", "Fortsett der jeg slapp", "Se tidslinjen før jeg sender"] },
-  { epic: "Brønnøysund", stories: ["Hent bedrift fra org.nr", "Foreslå hvem som skal signere", "Varsle ved rolleendringer"] },
+  { epic: "Brønnøysund", stories: ["Hent bedrift fra org.nr", "Foreslå hvem som skal signere", "Sjekk roller på nytt ved signering"] },
   { epic: "BankID", stories: ["Logg inn med BankID", "Signer Intrum Optimal – alene eller i fellesskap", "Gi fullmakt med BankID"] },
   { epic: "Sak og kravkontroll", stories: ["Send første sak i samme flyt", "Stopp duplikater og foreldede krav", "Dokumenter inkassovarsel"] },
-  { epic: "Provisjonering", stories: ["Kunde og avtale i Salesforce", "Klient og sak i Pink via adapter", "Aktiver portalbruker"] },
-  { epic: "Drift og måling", stories: ["Trakt og tid til første sak", "Alarmer ved feil i integrasjoner", "Oppfølgingsliste"] },
+  { epic: "Salesforce og måling", stories: ["Kunde og avtale i Salesforce", "Oppgave til rådgiver ved avvik", "Trakt og tid til første sak"] },
+  { epic: "Pink, portal og ERP", stories: ["Klient og sak i Pink via adapter", "Portal med tidslinje", "Partner-API"], later: true },
 ];
 
 const SIGN_STORY = {
@@ -152,17 +167,18 @@ const SIGN_STORY = {
 };
 
 const RACI: { what: string; avo: string; intrum: string }[] = [
-  { what: "Tjenestedesign og skjema", avo: "Utfører", intrum: "Godkjenner" },
+  { what: "Skjema på intrum.no", avo: "Utfører", intrum: "Godkjenner" },
   { what: "Azure-løsning (BFF, workers)", avo: "Utfører", intrum: "Godkjenner, drifter" },
   { what: "MuleSoft-API-er", avo: "Utfører", intrum: "Plattform og standarder" },
-  { what: "Pink-adapter", avo: "Utfører sammen med", intrum: "Pink-team eier" },
+  { what: "Pink-adapter (tillegg A)", avo: "Utfører sammen med", intrum: "Pink-team eier" },
   { what: "BankID- og KYC-avtaler", avo: "Rådgir", intrum: "Eier" },
   { what: "Juridisk og personvern (DPIA)", avo: "Bidrar", intrum: "Eier" },
   { what: "Pilot og opplæring", avo: "Fasiliterer", intrum: "Utfører" },
 ];
 
 const RISKS = [
-  { r: "Pink-importen tåler ikke nye felter", m: "Avklare format i oppstart, pilot med manuell kø bak" },
+  { r: "Forberedelsene er ikke klare ved oppstart", m: "BankID-avtale og tilganger avklares før uke 1" },
+  { r: "Pink er fortsatt manuelt i fase 1", m: "Kø med ferdig utfylte data – tillegg A fjerner steget" },
   { r: "Signaturtekst kan ikke tolkes automatisk", m: "Manuell kontroll som fallback, måle andelen" },
   { r: "Fødselsnummer fra BankID krever hjemmel", m: "Matche på navn og fødselsdato, avklare med juridisk" },
   { r: "Avhengighet til MuleSoft-teamets kapasitet", m: "Avo bygger API-ene etter Intrums standarder" },
@@ -286,40 +302,69 @@ export default function Page() {
         </ol>
       </Section>
 
-      <Section id="plan" title="Plan med Avo-team" lead="Tverrfaglig team som leverer i to-ukers sprinter, med demo for Intrum hver sprint. Kode, infrastruktur som kode og pipelines i Intrums egne miljøer.">
+      <Section id="plan" title="Plan: 8 uker med 3 personer" lead="Skjema og integrasjon for nye kunder. Avo-teamet bruker AI-assistert utvikling, med prototypen som utgangspunkt – derfor holder et lite team og kort tid.">
         <div className="grid lg:grid-cols-[1fr_300px] gap-5 items-start">
-          <ol className="space-y-3">
-            {SPRINTS.map((s, i) => (
-              <li key={s.name} className="rounded-2xl bg-white ring-1 ring-black/5 p-5 grid md:grid-cols-[180px_1fr] gap-4">
-                <div>
-                  <div className="text-xs font-semibold text-brand-700">{s.when}</div>
-                  <div className="font-semibold">
-                    {i}. {s.name}
-                  </div>
-                  <div className="text-xs text-ink-soft mt-1">{s.goal}</div>
+          <div className="space-y-4 min-w-0">
+            <div className="rounded-2xl bg-white ring-1 ring-black/5 p-5 overflow-x-auto">
+              <div className="min-w-[640px]">
+                <div className="grid text-[11px] text-ink-soft mb-2" style={{ gridTemplateColumns: `repeat(${WEEKS}, minmax(0, 1fr))` }}>
+                  {Array.from({ length: WEEKS }, (_, w) => (
+                    <div key={w} className="border-l border-black/10 pl-1.5">
+                      Uke {w + 1}
+                    </div>
+                  ))}
                 </div>
-                <div className="text-sm">
-                  <ul className="space-y-1">
-                    {s.deliver.map((d) => (
+                <div className="space-y-2">
+                  {SPRINTS.map((sp, i) => (
+                    <div key={sp.name} className="relative h-9">
+                      <div
+                        className="absolute inset-y-0 rounded-lg bg-brand-600 text-white px-3 flex items-center text-xs font-medium whitespace-nowrap overflow-hidden"
+                        title={sp.name}
+                        style={{ left: `${(sp.from / WEEKS) * 100}%`, width: `${((sp.to - sp.from) / WEEKS) * 100}%` }}
+                      >
+                        <span className="truncate">Sprint {i + 1} · {sp.name}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {SPRINTS.map((sp, i) => (
+                <div key={sp.name} className="rounded-xl bg-white ring-1 ring-black/5 p-4">
+                  <div className="text-xs font-semibold text-brand-700">
+                    Uke {sp.from + 1}–{sp.to} · Sprint {i + 1}
+                  </div>
+                  <div className="font-semibold">{sp.name}</div>
+                  <ul className="mt-2 space-y-1 text-sm text-ink-soft">
+                    {sp.deliver.map((d) => (
                       <li key={d}>• {d}</li>
                     ))}
                   </ul>
-                  <div className="mt-2 text-xs text-ink-soft">
-                    <b>Trenger fra Intrum:</b> {s.intrum}
-                  </div>
                 </div>
-              </li>
-            ))}
-          </ol>
+              ))}
+            </div>
+            <div className="rounded-xl bg-canvas p-4 text-sm">
+              <b>Før uke 1 (Intrum):</b> {PREP.join(" · ")}
+            </div>
+          </div>
           <aside className="space-y-4">
             <div className="rounded-2xl bg-ink text-white p-5">
-              <div className="font-semibold">Avo-team (forslag)</div>
-              <ul className="mt-3 space-y-2 text-sm">
+              <div className="font-semibold">Avo-team: 3 personer</div>
+              <ul className="mt-3 space-y-3 text-sm">
                 {TEAM.map((t) => (
-                  <li key={t.role} className="flex justify-between gap-3">
-                    <span className="text-brand-100">{t.role}</span>
-                    <span className="whitespace-nowrap">{t.share}</span>
+                  <li key={t.role}>
+                    <div>{t.role}</div>
+                    <div className="text-xs text-brand-200">{t.note}</div>
                   </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl bg-white ring-1 ring-black/5 p-5">
+              <div className="font-semibold">AI-assistert utvikling</div>
+              <ul className="mt-2 space-y-1.5 text-sm text-ink-soft">
+                {AI_WAYS.map((r) => (
+                  <li key={r}>• {r}</li>
                 ))}
               </ul>
             </div>
@@ -333,13 +378,39 @@ export default function Page() {
             </div>
           </aside>
         </div>
+
+        <div className="mt-6">
+          <h3 className="font-semibold">Tillegg – senere faser</h3>
+          <p className="text-sm text-ink-soft">Ikke en del av de 8 ukene. Kan gjøres når skjema og integrasjon for nye kunder er i drift, og prises da.</p>
+          <div className="mt-3 grid md:grid-cols-2 gap-4">
+            {ADDONS.map((a) => (
+              <div key={a.name} className="rounded-2xl border-2 border-dashed border-brand-200 bg-white p-5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full bg-brand-100 text-brand-700 px-2.5 py-0.5 text-xs font-semibold">{a.tag}</span>
+                  <span className="text-xs text-ink-soft">Pris avtales senere</span>
+                </div>
+                <div className="mt-2 font-semibold text-lg">{a.name}</div>
+                <div className="text-sm text-ink-soft">{a.goal}</div>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {a.deliver.map((d) => (
+                    <li key={d}>• {d}</li>
+                  ))}
+                </ul>
+                <div className="mt-3 text-xs text-ink-soft">{a.how}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </Section>
 
-      <Section id="backlog" title="Backlog" lead="Epos og brukerhistorier fra prototypen. Signaturforslaget er beskrevet i detalj som eksempel.">
+      <Section id="backlog" title="Backlog" lead="Epos for de 8 ukene, og hva som venter i tilleggene. Signaturforslaget er beskrevet i detalj som eksempel.">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {BACKLOG.map((b) => (
-            <div key={b.epic} className="rounded-xl bg-white ring-1 ring-black/5 p-4">
-              <div className="font-semibold text-sm">{b.epic}</div>
+            <div key={b.epic} className={b.later ? "rounded-xl border-2 border-dashed border-brand-200 p-4" : "rounded-xl bg-white ring-1 ring-black/5 p-4"}>
+              <div className="flex justify-between gap-2">
+                <div className="font-semibold text-sm">{b.epic}</div>
+                {b.later && <span className="text-[11px] text-brand-700 font-semibold">Tillegg</span>}
+              </div>
               <ul className="mt-2 space-y-1 text-xs text-ink-soft">
                 {b.stories.map((s) => (
                   <li key={s}>• {s}</li>

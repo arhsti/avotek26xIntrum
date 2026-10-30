@@ -76,71 +76,57 @@ const MONTHS = Array.from({ length: 14 }, (_, i) => {
 });
 
 // start/slutt i måneder fra november 2026
-const STREAMS: { name: string; owner: string; bars: { from: number; to: number; label: string; tone: "brand" | "sky" | "amber" | "gray" }[] }[] = [
-  { name: "Avklaring og beslutning", owner: "Produkteier, juridisk", bars: [{ from: 0, to: 1.5, label: "Fase 0", tone: "gray" }] },
-  { name: "Juridisk og compliance", owner: "Juridisk", bars: [{ from: 0, to: 3.5, label: "BankID-signering, purreservice, fullmakt", tone: "amber" }] },
-  { name: "Kundereise: faktura først", owner: "Digitalt team", bars: [{ from: 2, to: 4.5, label: "Bygg", tone: "brand" }, { from: 4.5, to: 6, label: "Pilot", tone: "brand" }] },
-  { name: "MuleSoft-API-er", owner: "Integrasjon", bars: [{ from: 1, to: 5.5, label: "Experience + Process, Brreg, KYC, Kontoregister", tone: "sky" }] },
-  { name: "Pink-adapter", owner: "Integrasjon + Pink-team", bars: [{ from: 3, to: 6, label: "Kø / batch", tone: "sky" }, { from: 9, to: 13.5, label: "System API (Azure)", tone: "sky" }] },
-  { name: "Kundeportal", owner: "Digitalt team", bars: [{ from: 4, to: 7.5, label: "BankID, tidslinje, fullmakter", tone: "brand" }] },
-  { name: "Partner-API og ERP", owner: "Integrasjon + partnere", bars: [{ from: 6, to: 10.5, label: "Partner-API, Tripletex fra fil til API", tone: "sky" }, { from: 10.5, to: 14, label: "Flere partnere", tone: "sky" }] },
-  { name: "Organisasjon og roller", owner: "Salg, kundesupport", bars: [{ from: 4, to: 14, label: "Nye roller: unntak og oppfølging", tone: "gray" }] },
-  { name: "Måling", owner: "Analyse", bars: [{ from: 0, to: 2, label: "Baseline", tone: "gray" }, { from: 4.5, to: 14, label: "KPI-er i drift", tone: "gray" }] },
+const STREAMS: { name: string; owner: string; bars: { from: number; to: number; label: string; tone: "brand" | "sky" | "amber" | "gray"; later?: boolean }[] }[] = [
+  { name: "Forberedelse", owner: "Intrum", bars: [{ from: 0, to: 2, label: "BankID-avtale, tilganger, juridisk", tone: "amber" }] },
+  { name: "Skjema og integrasjon", owner: "Avo – 3 personer, 8 uker", bars: [{ from: 2, to: 4, label: "Skjema, Brønnøysund, BankID, Salesforce", tone: "brand" }] },
+  { name: "Pilot og drift", owner: "Intrum + Avo", bars: [{ from: 4, to: 6, label: "Pilot", tone: "gray" }, { from: 6, to: 14, label: "Ny flyt for nye SMB-kunder", tone: "gray" }] },
+  { name: "Tillegg A: Pink og portal", owner: "Senere – prises da", bars: [{ from: 6, to: 9, label: "Pink-adapter, portal, oppfølging", tone: "sky", later: true }] },
+  { name: "Fase 2: ERP-partnere", owner: "Prosjektbasert", bars: [{ from: 9, to: 14, label: "Partner-API, Tripletex først", tone: "sky", later: true }] },
+  { name: "Måling", owner: "Analyse", bars: [{ from: 0, to: 2, label: "Baseline", tone: "gray" }, { from: 4, to: 14, label: "KPI-er i drift", tone: "gray" }] },
 ];
 
 const MILESTONES = [
-  { at: 1.5, label: "M1 Beslutning" },
-  { at: 5, label: "M2 Første pilotkunde" },
-  { at: 8, label: "M3 Pink automatisk" },
-  { at: 11, label: "M4 Tripletex på API" },
-  { at: 13.5, label: "M5 Alle nye SMB i ny flyt" },
+  { at: 2, label: "M1 Oppstart" },
+  { at: 4, label: "M2 I produksjon" },
+  { at: 6, label: "M3 Etter pilot" },
 ];
 
 const PLAN_PHASES = [
   {
     n: 0,
-    name: "Avklaring",
+    name: "Forberedelse",
     when: "nov–des 2026",
-    goal: "Beslutning om pilot og avklarte forutsetninger",
-    deliver: ["Juridisk: BankID-signering av Intrum Optimal, purreservice, fullmakt", "Datamodell mot Pink og valg av adapter", "Baseline for KPI-er"],
+    goal: "Alt klart til uke 1",
+    deliver: ["BankID-leverandør og avtale", "Tilganger til Azure, MuleSoft og Salesforce", "Juridisk avklaring og KPI-baseline"],
     phases: "Alle",
-    done: "Go/no-go for pilot (M1)",
+    done: "Oppstart (M1)",
   },
   {
     n: 1,
-    name: "Pilot: faktura først",
-    when: "jan–apr 2027",
-    goal: "Nye SMB-kunder sender første sak samme dag",
-    deliver: ["Faktura først, BankID, signatur fra Brønnøysund, KYC", "Saksskjema med kravkontroll", "Salesforce automatisk – Pink manuelt bak en kø i pilot"],
+    name: "Skjema og integrasjon",
+    when: "8 uker · jan–feb 2027",
+    goal: "Nye SMB-kunder blir kunde og sender første sak samme dag",
+    deliver: ["Skjema på intrum.no med faktura først", "Brønnøysund og BankID med signaturforslag", "Kravkontroll og Salesforce automatisk – Pink via kø"],
     phases: "1–3, 5",
-    done: "Første pilotkunde (M2), konvertering måles mot dagens skjema",
+    done: "I produksjon med pilot (M2)",
   },
   {
     n: 2,
-    name: "Automatisering mot Pink",
-    when: "feb–jun 2027",
-    goal: "Ingen manuell registrering etter signering",
-    deliver: ["Pink-adapter (kø/batch) for klient og sak", "Portal aktiveres automatisk med BankID", "Statushendelser til tidslinjen"],
+    name: "Tillegg A: Pink og portal",
+    when: "Senere",
+    goal: "Ingen manuelle steg etter signering",
+    deliver: ["Pink-adapter for klient og sak", "Portal med BankID og tidslinje", "Oppfølgingsliste"],
     phases: "4, 6",
-    done: "Kunde og sak i Pink uten manuelt arbeid (M3)",
+    done: "Avtales når fase 1 er i drift",
   },
   {
     n: 3,
-    name: "Partner-API",
-    when: "mai–sep 2027",
-    goal: "ERP-er integrerer én gang, kundene aktiverer selv",
-    deliver: ["Partner-API i MuleSoft med samtykke via lenke", "Tripletex fra fil til API", "Status tilbake til ERP"],
+    name: "Fase 2: ERP-partnere",
+    when: "Prosjektbasert",
+    goal: "ERP-kunder aktiverer selv",
+    deliver: ["Partner-API i MuleSoft", "Tripletex fra fil til API", "Status tilbake til ERP"],
     phases: "4–6",
-    done: "Tripletex-kunder på API (M4)",
-  },
-  {
-    n: 4,
-    name: "Skalering",
-    when: "sep–des 2027",
-    goal: "Ny flyt er standard for alle nye SMB-kunder",
-    deliver: ["Flere ERP-partnere", "Én kundeportal", "Oppfølgingsliste i drift, Pink System API"],
-    phases: "Alle",
-    done: "Alle nye SMB-kunder i ny flyt (M5)",
+    done: "Per partner",
   },
 ];
 
@@ -221,6 +207,7 @@ export default function Page() {
       {/* Tidslinje */}
       <section>
         <h2 className="text-xl font-semibold">Plan nov 2026 – des 2027</h2>
+        <p className="text-sm text-ink-soft mt-1">Fase 1 er 8 uker med Avo. Stiplet = tillegg og fase 2, som avtales senere.</p>
         <div className="mt-4 overflow-x-auto rounded-2xl bg-white ring-1 ring-black/5 p-4">
           <div className="min-w-[960px]">
             <div className="grid" style={{ gridTemplateColumns: "220px 1fr" }}>
@@ -242,7 +229,9 @@ export default function Page() {
                     {s.bars.map((b) => (
                       <div
                         key={b.label}
-                        className={`absolute top-1/2 -translate-y-1/2 h-7 rounded-md px-2 text-[11px] font-medium flex items-center overflow-hidden whitespace-nowrap ${TONE[b.tone]}`}
+                        className={`absolute top-1/2 -translate-y-1/2 h-7 rounded-md px-2 text-[11px] font-medium flex items-center overflow-hidden whitespace-nowrap ${
+                          b.later ? "border-2 border-dashed border-sky-400 bg-sky-50 text-sky-900" : TONE[b.tone]
+                        }`}
                         style={{ left: pct(b.from), width: pct(b.to - b.from) }}
                         title={b.label}
                       >
@@ -257,7 +246,7 @@ export default function Page() {
                 {MILESTONES.map((m, i) => (
                   <div
                     key={m.label}
-                    className={`absolute flex flex-col ${m.at > 12 ? "-translate-x-full items-end" : "-translate-x-1/2 items-center"}`}
+                    className="absolute flex flex-col -translate-x-1/2 items-center"
                     style={{ left: pct(m.at), top: i % 2 ? 30 : 8 }}
                   >
                     <span className="size-3 rotate-45 bg-ink" aria-hidden />
@@ -273,7 +262,7 @@ export default function Page() {
       {/* Faser */}
       <section>
         <h2 className="text-xl font-semibold">Faser</h2>
-        <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="mt-4 grid md:grid-cols-2 lg:grid-cols-4 gap-4">
           {PLAN_PHASES.map((p) => (
             <div key={p.n} className="rounded-2xl bg-white ring-1 ring-black/5 p-5 flex flex-col gap-3">
               <div className="flex items-start justify-between gap-2">
@@ -300,9 +289,9 @@ export default function Page() {
       <section className="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-6 text-sm">
         <h2 className="font-semibold text-lg">Avhengigheter og risiko</h2>
         <ul className="mt-3 grid md:grid-cols-2 gap-x-8 gap-y-2">
-          <li>• Pink-adapteren styrer når manuell registrering forsvinner (fase 2)</li>
-          <li>• Juridisk avklaring må være klar før pilot (fase 0)</li>
-          <li>• Partnere må prioritere å bygge mot API-et – start med Tripletex</li>
+          <li>• Pink er manuelt (via kø) til tillegg A er på plass</li>
+          <li>• BankID-avtale og juridisk avklaring må være klare før uke 1</li>
+          <li>• Partnere må prioritere å bygge mot API-et – start med Tripletex i fase 2</li>
           <li>• Migrering fra Pink on-prem til Azure kan flytte System API-et</li>
         </ul>
       </section>
