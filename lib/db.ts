@@ -22,13 +22,17 @@ interface Store {
 
 // ---------- Postgres ----------
 
+// Vercel + Neon setter DATABASE_URL (eller POSTGRES_URL, avhengig av oppsett)
+const DB_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+
 let sqlClient: postgres.Sql | null = null;
 let schemaReady: Promise<unknown> | null = null;
 
 async function sql() {
   if (!sqlClient) {
     const { default: pg } = await import("postgres");
-    sqlClient = pg(process.env.DATABASE_URL!, { ssl: "require", max: 3, idle_timeout: 20 });
+    // prepare: false – Neons pooler (PgBouncer) tåler ikke alltid lagrede spørringer
+    sqlClient = pg(DB_URL!, { ssl: "require", max: 3, idle_timeout: 20, prepare: false });
   }
   if (!schemaReady) {
     schemaReady = sqlClient`
@@ -152,8 +156,8 @@ const fileStore: Store = {
   },
 };
 
-export const db: Store = process.env.DATABASE_URL ? pgStore : fileStore;
-export const dbBackend = process.env.DATABASE_URL ? "postgres" : process.env.VERCEL ? "tmp-file" : "file";
+export const db: Store = DB_URL ? pgStore : fileStore;
+export const dbBackend = DB_URL ? "postgres" : process.env.VERCEL ? "tmp-file" : "file";
 
 export function newId(prefix: string) {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
