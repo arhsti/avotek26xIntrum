@@ -144,7 +144,8 @@ export function CaseStep({ o, draftCase, setDraftCase, go }: StepProps) {
       debtorOrgNr: "975 312 461",
       debtorName: "Vestkyst Eiendom AS",
       debtorAddress: "Strandkaien 20, 4005 Stavanger",
-      invoiceNumber: "20431",
+      // Nytt nummer hver gang, ellers stopper duplikatkontrollen gjentatte demoer
+      invoiceNumber: String(20000 + Math.floor(Math.random() * 79999)),
       issueDate: daysAgo(58),
       dueDate: daysAgo(44),
       amount: "18 750,00",
