@@ -145,7 +145,7 @@ export function CompanyStep({ o, update, go }: StepProps) {
             )}
             <input ref={fileRef} type="file" accept=".pdf,.xml,image/*" className="hidden" onChange={(e) => readInvoice(e.target.files?.[0])} />
           </div>
-          <p className="mt-2 text-xs text-ink-soft">Demo: et org.nr i filnavnet (f.eks. «faktura-987654325.pdf») blir avsender. Ellers brukes Fjellheim Rørlegger AS.</p>
+          <p className="mt-2 text-xs text-ink-soft">Demo: org.nr i filnavnet blir avsender, ellers Fjellheim Rørlegger AS.</p>
         </div>
       )}
 
@@ -174,8 +174,9 @@ export function CompanyStep({ o, update, go }: StepProps) {
       )}
 
       {mode === "orgnr" && (
-      <div className="mt-3 flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-ink-soft">Testbedrifter:</span>
+      <details className="mt-3 text-xs text-ink-soft">
+        <summary className="cursor-pointer select-none">Testbedrifter</summary>
+        <div className="mt-2 flex flex-wrap gap-2 items-center">
         {DEMO_COMPANIES.map((d) => (
           <button
             key={d.orgNr}
@@ -189,7 +190,8 @@ export function CompanyStep({ o, update, go }: StepProps) {
             {d.label} <span className="text-ink-soft">· {d.tag}</span>
           </button>
         ))}
-      </div>
+        </div>
+      </details>
       )}
 
       <div className="mt-6 space-y-4">
@@ -313,8 +315,7 @@ export function IdentityStep({ o, update, go }: StepProps) {
             {o.signatureRight && <SignatureRow right={o.signatureRight} name={o.signer!.name} />}
             <CheckRow
               ok
-              title="Kundekontroll (hvitvaskingsloven) godkjent"
-              detail={o.kyc!.checks.map((c) => `${c.name}: ${c.result}`).join(" · ")}
+              title="Kundekontroll godkjent"
             />
           </div>
           <div className="mt-5 flex gap-3">
@@ -527,27 +528,17 @@ export function AgreementStep({ o, update, go }: StepProps) {
           <div className="font-semibold text-lg">Intrum Optimal</div>
           <Badge>Fiktive vilkår</Badge>
         </div>
-        <ul className="mt-4 grid sm:grid-cols-2 gap-2 text-sm">
-          {[
-            "Inkassovarsel og betalingsoppfordring",
-            "Oppfølging av skyldner på telefon, SMS og e-post",
-            "Avtale om nedbetaling på dine vegne",
-            "Rettslig inkasso ved behov",
-            "Kundeportal med status på alle saker",
-            "Utbetaling til konto når skyldner betaler",
-          ].map((t) => (
+        <ul className="mt-4 space-y-2 text-sm">
+          {["Vi følger opp skyldner fra varsel til betaling", "Du følger sakene i kundeportalen", "0 kr for purreservice og inkasso – 8 % av innbetalt hovedkrav hvis saken sendes 60+ dager etter forfall"].map((t) => (
             <li key={t} className="flex gap-2">
               <Check className="size-4 mt-0.5 text-brand-600 shrink-0" />
               {t}
             </li>
           ))}
         </ul>
-        <div className="mt-5 rounded-xl bg-brand-50 p-4 text-sm">
-          <div className="font-medium">Pris</div>
-          <p className="text-ink-soft mt-1">
-            Ingen etablerings- eller månedskostnad. Inkassosalær kreves inn fra skyldner etter inkassoforskriften. Fiktiv prismodell for prototypen.
-          </p>
-        </div>
+        <a href="/priser" target="_blank" className="mt-3 inline-block text-sm font-semibold text-brand-700 hover:underline">
+          Se priser og salær
+        </a>
         <label className="mt-5 flex gap-3 text-sm items-start">
           <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 size-5 accent-brand-600" />
           <span>

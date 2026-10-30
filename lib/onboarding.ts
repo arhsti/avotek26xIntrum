@@ -288,14 +288,14 @@ export type ProvisionEvent =
   | { type: "error"; message: string };
 
 export const PROVISION_LABELS = {
-  salesforce: { label: "Kunde og avtale registreres i CRM", system: "Salesforce", replaces: "Digital Sales registrerer manuelt" },
-  pink_client: { label: "Kunde opprettes i kjernesystem", system: "MuleSoft → Pink", replaces: "Manuell registrering i Pink" },
-  portal: { label: "Tilgang til kundeportalen aktiveres", system: "Kundeportal", replaces: "Manuell portalaktivering" },
-  pink_case: { label: "Første sak registreres", system: "MuleSoft → Pink", replaces: "Kunden venter på aktivering" },
+  salesforce: { label: "Avtalen registreres", system: "Salesforce", replaces: "Digital Sales registrerer manuelt" },
+  pink_client: { label: "Kundeforholdet opprettes", system: "MuleSoft → Pink", replaces: "Manuell registrering i Pink" },
+  portal: { label: "Kundeportalen gjøres klar", system: "Kundeportal", replaces: "Manuell portalaktivering" },
+  pink_case: { label: "Saken registreres", system: "MuleSoft → Pink", replaces: "Kunden venter på aktivering" },
   notice: { label: "Første brev til skyldner planlegges", system: "MuleSoft → Pink", replaces: "—" },
-  advisor: { label: "Rådgiver får oppgave om å kontakte kunden", system: "Salesforce", replaces: "Kartleggingsmøte før avtale" },
+  advisor: { label: "En rådgiver får beskjed", system: "Salesforce", replaces: "Kartleggingsmøte før avtale" },
   partner_access: { label: "ERP-systemet får tilgang til å sende saker", system: "MuleSoft", replaces: "Manuelt integrasjonsprosjekt" },
-  email: { label: "Velkomst og bekreftelse sendes", system: "E-post", replaces: "Manuell velkomst" },
+  email: { label: "Bekreftelse sendes på e-post", system: "E-post", replaces: "Manuell velkomst" },
 } as const;
 
 export async function* submit(id: string): AsyncGenerator<ProvisionEvent> {

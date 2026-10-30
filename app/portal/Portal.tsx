@@ -3,7 +3,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { AuthorizedUser, DebtCaseRow } from "@/lib/types";
 import { formatOrgNr, nok } from "@/lib/validation";
-import { Badge, Button, Card, Check, ErrorBox, Spinner, api, cx } from "@/components/ui";
+import { caseTimeline } from "@/lib/timeline";
+import { CaseTimeline } from "@/components/CaseTimeline";
+import { Badge, Button, Card, ErrorBox, Spinner, api, cx } from "@/components/ui";
 
 type PortalCase = DebtCaseRow & { phase: { code: string; label: string } };
 type PortalData = {
@@ -171,23 +173,12 @@ export function Portal() {
                 <Badge tone={phaseTone(c.phase.code)}>{c.phase.label}</Badge>
               </div>
 
-              <h2 className="font-semibold mt-6 mb-3">Saksgang</h2>
-              <ol className="relative border-l-2 border-brand-100 ml-2.5 space-y-4">
-                {(c.events ?? []).map((e, i, arr) => (
-                  <li key={e.at + e.code} className="pl-5 relative">
-                    <span
-                      className={cx(
-                        "absolute -left-[11px] top-0.5 size-5 rounded-full grid place-items-center",
-                        i === arr.length - 1 ? "bg-brand-600 text-white" : "bg-brand-100 text-brand-700",
-                      )}
-                    >
-                      <Check className="size-3" />
-                    </span>
-                    <div className="text-sm font-medium">{e.label}</div>
-                    <div className="text-xs text-ink-soft">{fmt(e.at)}</div>
-                  </li>
-                ))}
-              </ol>
+              <h2 className="font-semibold mt-6 mb-4">Tidslinje</h2>
+              {c.status === "rejected" ? (
+                <p className="text-sm text-ink-soft">Saken ble avvist i kravkontrollen og er ikke sendt videre.</p>
+              ) : (
+                <CaseTimeline steps={caseTimeline(c)} />
+              )}
               {c.phase.code !== "settled" && c.status !== "rejected" && (
                 <Button variant="secondary" className="mt-5" onClick={() => act("advance")} loading={busy}>
                   Simuler neste hendelse (demo)
@@ -236,6 +227,7 @@ export function Portal() {
 }
 
 function AccessPanel({ id, access, onChange }: { id: string; access: PortalData["access"]; onChange: () => void }) {
+  const [expanded, setExpanded] = useState(false);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -263,16 +255,16 @@ function AccessPanel({ id, access, onChange }: { id: string; access: PortalData[
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold">Hvem kan sende saker</h2>
-          <p className="text-sm text-ink-soft">
-            Fra Brønnøysundregistrene: «{access.signature?.rule.trim()}»{access.prokura ? ` «${access.prokura.rule.trim()}»` : ""}
-          </p>
+          <h2 className="font-semibold">Brukere og tilganger</h2>
         </div>
-        <div className="text-right text-xs text-ink-soft">
-          Kontrollert mot Brønnøysund {access.checkedAt ? new Date(access.checkedAt).toLocaleDateString("nb-NO") : "–"}
-          <span className="block">Rolleendringer overvåkes daglig (simulert)</span>
-        </div>
+        <div className="text-xs text-ink-soft">Holdes oppdatert mot Brønnøysund</div>
       </div>
+      {!expanded ? (
+        <button onClick={() => setExpanded(true)} className="mt-2 text-sm font-semibold text-brand-700 hover:underline min-h-11">
+          {access.users.length} personer kan sende saker · vis og endre
+        </button>
+      ) : (
+      <>
       <ul className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {access.users.map((u) => (
           <li key={u.name + u.at} className="rounded-xl bg-canvas px-4 py-3 text-sm">
@@ -315,6 +307,8 @@ function AccessPanel({ id, access, onChange }: { id: string; access: PortalData[
             <ErrorBox message={error} />
           </div>
         </form>
+      )}
+      </>
       )}
     </Card>
   );

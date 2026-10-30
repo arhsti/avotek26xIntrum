@@ -75,7 +75,7 @@ export async function runClaimChecks(
   else add("due", "Kravet er forfalt og ikke foreldet", "ok", `Forfalt for ${age} dager siden`);
 
   // Provisjon: Intrum Optimal tar 8 % når saken registreres 60+ dager etter forfall
-  if (age >= PROVISION_DAYS) add("timing", "Registrert etter 60 dager", "info", `${age} dager etter forfall – 8 % provisjon etter Intrum Optimal`);
+  if (age >= PROVISION_DAYS) add("timing", "Registrert etter 60 dager", "info", `${age} dager etter forfall – 8 % provisjon av innbetalt hovedkrav (Intrum Optimal)`);
   else if (age > 0) add("timing", "Sendt i tide", "info", `0 kr i provisjon – ${PROVISION_DAYS - age} dager før 60-dagersgrensen`);
 
   // Beløp: utestående = fakturabeløp minus innbetalinger og kreditnotaer

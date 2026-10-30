@@ -4,6 +4,8 @@ import type { ClaimDecision, OnboardingRow } from "@/lib/types";
 import { formatAccountNumber, formatOrgNr, nok } from "@/lib/validation";
 import { Badge, Button, Card, Check, ErrorBox, Spinner, api, cx } from "../ui";
 import { StepHeader, type StepProps } from "./steps";
+import { CaseTimeline } from "../CaseTimeline";
+import { caseTimeline } from "@/lib/timeline";
 
 type ProgressStep = { key: string; label: string; system: string; replaces: string; status: "running" | "done" | "skipped" | "error"; ref?: string; error?: string };
 
@@ -128,14 +130,24 @@ export function SubmitStep({ o, draftCase, update, go }: StepProps) {
               <Summary title="Første sak" onEdit={() => go("case")}>
                 {nok(draftCase.outstanding ?? draftCase.invoice.amount)} fra {draftCase.debtor.name} · faktura {draftCase.invoice.number}, forfalt{" "}
                 {new Date(draftCase.invoice.dueDate).toLocaleDateString("nb-NO")}
-                <span className="block text-ink-soft">{draftCase.nextAction}</span>
               </Summary>
             )}
           </Card>
 
           {draftCase?.claimCheck && !partner && (
-            <Card className="p-5">
-              <ClaimCheckList check={draftCase.claimCheck} />
+            <Card className="p-5 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-semibold">Dette skjer når du sender inn</h2>
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-brand-700 select-none">
+                    Kravet er kontrollert ({draftCase.claimCheck.checks.filter((c) => c.status === "ok").length} kontroller OK)
+                  </summary>
+                  <div className="mt-3">
+                    <ClaimCheckList check={draftCase.claimCheck} />
+                  </div>
+                </details>
+              </div>
+              <CaseTimeline steps={caseTimeline({ ...draftCase, events: [] })} />
             </Card>
           )}
 
@@ -160,7 +172,7 @@ export function SubmitStep({ o, draftCase, update, go }: StepProps) {
         </div>
       ) : (
         <Card className="p-5">
-          <div className="text-sm text-ink-soft mb-3">Dette skjer automatisk nå, og erstatter manuelle steg i dag:</div>
+          <div className="text-sm text-ink-soft mb-3">Et øyeblikk …</div>
           <ul className="space-y-1">
             {progress.map((p) => (
               <li key={p.key} className="flex items-start gap-3 py-2 animate-fade-up">
@@ -176,11 +188,6 @@ export function SubmitStep({ o, draftCase, update, go }: StepProps) {
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium">{p.label}</div>
-                  <div className="text-xs text-ink-soft">
-                    {p.system}
-                    {p.ref && ` · ${p.ref}`}
-                    {p.replaces !== "—" && <span className="line-through ml-2 opacity-70">{p.replaces}</span>}
-                  </div>
                 </div>
               </li>
             ))}

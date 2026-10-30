@@ -5,24 +5,27 @@ Laget til Avo fagdag 30.10.2026. **Alle data og integrasjoner er fiktive.**
 
 ## Hva prototypen viser
 
+**Kundevisning**
+
 | Side | Innhold |
 |---|---|
-| `/` | Inngang og oversikt |
-| `/onboarding` | Selvbetjent flyt. **Faktura først**: last opp fakturaen → avsender blir din bedrift, mottaker blir skyldner → BankID (signaturrett + KYC/AML) → konto fra fakturaen → signer **Intrum Optimal** → se over kravet → kravkontroll → automatisk provisjonering. Alternativt start med org.nr |
-| `/erp-demo` | Simulert regnskapssystem. Aktiverer kunden via onboarding-lenke, sender krav via partner-API og henter status tilbake |
-| `/portal` | Kundeportal: saksgang, livssyklus for kravet og meldinger med saksbehandler |
+| `/` | Inngang: last opp fakturaen |
+| `/onboarding` | Faktura først → BankID (signatur fra Brønnøysund, KYC) → kontakt, konto og kvalifisering → signer **Intrum Optimal** → se over kravet → tidslinje for hva som skjer |
+| `/priser` | Priser fra Intrum Optimal (vedlegg 1, 2026) og eksempel på salær med kalkulator |
+| `/portal` | Kundeportal: tidslinje per sak, meldinger, brukere og fullmakter |
+| `/erp-demo` | Simulert regnskapssystem som bruker partner-API-et |
 | `/partner` | API-dokumentasjon for ERP-leverandører |
-| `/admin` | Innsikt: trakt, konvertering, median tid til første sak, saker, integrasjonslogg |
-| `/sammenligning` | I dag vs. ny flyt, ansvarsdeling ERP/portal, forutsetninger |
-| `/arkitektur` | Mapping til MuleSoft, Azure/.NET, workers og veien til Pink |
-| `/gevinster` | Hva det gir Intrum: hvorfor kundene tar det i bruk, gevinster, KPI-er, innføring og risiko |
 
-### Saksskjemaet
+**Intrum-visning (`/intrum`, kan beskyttes med `ADMIN_PASSWORD`)**
 
-Bygget på feltene i dagens «Registrere sak» hos Intrum, utvidet med det som sparer tid:
-type krav, din referanse, innbetalinger og kreditnotaer (utestående beregnes), inkassovarsel (dato, frist, kopi – dokumentert varsel gir betalingsoppfordring samme dag),
-dokumentasjon, «omtvistet» med beskrivelse, og bekreftelse på at egne purringer stoppes.
-Kravkontrollen viser også 60-dagersgrensen for provisjon i Intrum Optimal.
+| Side | Innhold |
+|---|---|
+| `/intrum` | Innsikt: trakt, KPI-er, oppfølgingsliste, saker, integrasjonslogg |
+| `/intrum/dataflyt` | Hva skjer hos Intrum etter innsendt skjema – fase for fase (i dag vs. ny), klikkbart kart over hvilke data som går til Pink, Salesforce, Brønnøysund m.fl., med ekte data fra databasen |
+| `/intrum/prosjektplan` | Dagens prosesskart som svømmebaner, plan nov 2026–des 2027 med faser og milepæler |
+| `/intrum/prosess` | De seks fasene i dag vs. ny flyt, suksesskriterier og KPI-er |
+| `/intrum/gevinster` | Hva det gir Intrum |
+| `/intrum/arkitektur` | MuleSoft, Azure/.NET og veien til Pink |
 
 ### Testdata
 
@@ -51,7 +54,7 @@ Uten `DATABASE_URL` lagres data i `.data/db.json`.
 
 1. Push repoet til GitHub og importer det i Vercel (Next.js oppdages automatisk).
 2. Legg til en Postgres-database: **Storage → Marketplace → Neon**. Den setter `DATABASE_URL` automatisk. Tabellen opprettes ved første kall.
-3. Valgfritt: `ADMIN_PASSWORD` (beskytter `/admin`, brukernavn `admin`) og `MOCK_FAILURE_RATE` (f.eks. `0.1` for å demonstrere feilhåndtering og retry).
+3. Valgfritt: `ADMIN_PASSWORD` (beskytter `/intrum`, brukernavn `admin`) og `MOCK_FAILURE_RATE` (f.eks. `0.1` for å demonstrere feilhåndtering og retry).
 
 Uten database på Vercel brukes en midlertidig fil i `/tmp` – data kan forsvinne mellom kall. Bruk Postgres for demo.
 

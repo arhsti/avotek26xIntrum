@@ -506,21 +506,9 @@ export function CaseStep({ o, draftCase, setDraftCase, go }: StepProps) {
           </Card>
 
           {age !== null && age > 0 && (
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-brand-600 text-white p-4">
-                <div className="text-xs font-semibold tracking-wide text-brand-100">FØRSTE STEG I DAG</div>
-                <div className="font-semibold mt-1">
-                  {form.disputed ? "Vurdering av innsigelsen" : noticeOk ? "Betalingsoppfordring" : "Inkassovarsel (14 dagers frist)"}
-                </div>
-                {!form.disputed && noticeOk && <div className="text-sm text-brand-100 mt-1">Varselet er dokumentert – vi hopper over 14 dagers ventetid.</div>}
-              </div>
-              <div className={cx("rounded-2xl p-4 ring-1", age >= 60 ? "bg-amber-50 ring-amber-200" : "bg-white ring-black/5")}>
-                <div className="text-xs font-semibold tracking-wide text-ink-soft">PROVISJON</div>
-                <div className="font-semibold mt-1">{age >= 60 ? "8 % – registrert 60+ dager etter forfall" : "0 kr"}</div>
-                <div className="text-sm text-ink-soft mt-1">
-                  {age >= 60 ? "Send tidligere neste gang – før dag 60 er det gratis." : `Forfalt for ${age} dager siden – ${60 - age} dager før 60-dagersgrensen.`}
-                </div>
-              </div>
+            <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm">
+              <b>Første steg:</b> {form.disputed ? "en saksbehandler ser på innsigelsen" : noticeOk ? "betalingsoppfordring i dag" : "inkassovarsel i dag"} ·{" "}
+              {age >= 60 ? "8 % provisjon (sendt 60+ dager etter forfall)" : "0 kr for deg"}
             </div>
           )}
 

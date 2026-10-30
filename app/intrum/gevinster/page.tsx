@@ -102,8 +102,8 @@ export default function Page() {
             </tbody>
           </table>
           <p className="px-6 py-4 text-xs text-ink-soft">
-            Flere av disse vises allerede live i <Link href="/admin" className="underline">Innsikt</Link>. Hvert måltall er koblet til et suksesskriterium i
-            prosesskartet – se <Link href="/sammenligning" className="underline">I dag vs. ny flyt</Link>.
+            Flere av disse vises allerede live i <Link href="/intrum" className="underline">Innsikt</Link>. Hvert måltall er koblet til et suksesskriterium i
+            prosesskartet – se <Link href="/intrum/prosess" className="underline">I dag vs. ny flyt</Link>.
           </p>
         </div>
 
@@ -126,7 +126,7 @@ export default function Page() {
       <section className="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-6 text-sm">
         <h2 className="font-semibold text-lg">Forutsetninger og risiko</h2>
         <ul className="mt-3 grid md:grid-cols-2 gap-x-8 gap-y-2">
-          <li>• Pink har ikke API – trenger adapter eller kø mot dagens import (se <Link href="/arkitektur" className="underline">arkitektur</Link>)</li>
+          <li>• Pink har ikke API – trenger adapter eller kø mot dagens import (se <Link href="/intrum/arkitektur" className="underline">arkitektur</Link>)</li>
           <li>• Juridisk: digital signering av Intrum Optimal med BankID, og purreservice i kundens navn</li>
           <li>• Juridisk: krav til varsel for næring vs. forbruker – ny inkassolov på vei</li>
           <li>• To portaler i dag – nye kunder bør bare møte én</li>

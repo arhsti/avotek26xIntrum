@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { STEPS, STEP_LABELS, type DebtCaseRow, type IntegrationLogRow, type OnboardingRow, type StepKey } from "@/lib/types";
+import { STEPS, STEP_LABELS, type DebtCaseRow, type OnboardingRow, type StepKey } from "@/lib/types";
 import { formatOrgNr } from "@/lib/validation";
 import { Badge, Card, Check, Spinner, api, cx } from "../ui";
 import { AgreementStep, CompanyStep, DetailsStep, IdentityStep, type StepProps } from "./steps";
@@ -23,7 +23,6 @@ export function Wizard() {
   const [o, setO] = useState<OnboardingRow | null>(null);
   const [draftCase, setDraftCase] = useState<DebtCaseRow | null>(null);
   const [view, setView] = useState<StepKey>("company");
-  const [showLog, setShowLog] = useState(false);
 
   const start = useCallback(async (fresh = false) => {
     const fromUrl = new URLSearchParams(window.location.search).get("id");
@@ -132,7 +131,6 @@ export function Wizard() {
             {partner && <SideItem done={Boolean(o.partnerConnection)} label={`Tilgang for ${partner.partnerName}`} value={o.partnerConnection && "Aktiv"} />}
           </ul>
         </Card>
-        <BehindTheScenes onboardingId={o.id} open={showLog} setOpen={setShowLog} />
       </aside>
     </div>
   );
@@ -164,47 +162,5 @@ function Timer({ startedAt, stoppedAt }: { startedAt: string; stoppedAt?: string
     <span className="tabular-nums text-xs text-ink-soft" title="Tid siden start">
       {String(Math.floor(s / 60)).padStart(2, "0")}:{String(s % 60).padStart(2, "0")}
     </span>
-  );
-}
-
-function BehindTheScenes({ onboardingId, open, setOpen }: { onboardingId: string; open: boolean; setOpen: (v: boolean) => void }) {
-  const [log, setLog] = useState<IntegrationLogRow[]>([]);
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    const load = () => api<IntegrationLogRow[]>(`/api/onboarding/${onboardingId}/log`, undefined, "GET").then((l) => alive && setLog(l)).catch(() => {});
-    load();
-    const t = setInterval(load, 1500);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [open, onboardingId]);
-
-  return (
-    <Card className="text-sm overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full px-5 py-4 flex items-center justify-between hover:bg-brand-50">
-        <span className="font-semibold">Bak kulissene</span>
-        <span className="text-xs text-ink-soft">{open ? "Skjul" : "Vis integrasjonskall"}</span>
-      </button>
-      {open && (
-        <div className="px-5 pb-4 max-h-[420px] overflow-y-auto">
-          {log.length === 0 && <div className="text-ink-soft text-xs">Ingen kall ennå.</div>}
-          <ul className="space-y-2">
-            {log.map((l) => (
-              <li key={l.id} className="rounded-lg bg-canvas px-3 py-2">
-                <div className="flex justify-between gap-2">
-                  <span className="font-medium">{l.system}</span>
-                  <span className={cx("text-xs tabular-nums", l.status === "error" ? "text-red-600" : "text-ink-soft")}>
-                    {l.status === "error" ? "feil" : l.durationMs ? `${l.durationMs} ms` : "intern"}
-                  </span>
-                </div>
-                <div className="text-xs text-ink-soft font-mono break-words">{l.action}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </Card>
   );
 }
