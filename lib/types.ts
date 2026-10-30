@@ -12,7 +12,7 @@ export const STEP_LABELS: Record<StepKey, string> = {
 };
 
 export type Role = {
-  type: "Daglig leder" | "Styreleder" | "Styremedlem" | "Innehaver";
+  type: "Daglig leder" | "Styreleder" | "Styremedlem" | "Innehaver" | "Prokurist";
   name: string;
   birthDate: string;
   canSign: boolean;
@@ -30,6 +30,21 @@ export type Company = {
   registeredAt: string;
   vatRegistered: boolean;
   roles: Role[];
+  /** «Signatur» i Enhetsregisteret: hvem kan forplikte selskapet, alene eller i fellesskap */
+  signature: { rule: string; kind: "alone" | "jointly"; signers: string[] };
+  /** «Prokura» i Enhetsregisteret */
+  prokura?: { rule: string; persons: string[] };
+  accountant?: { name: string; orgNr: string };
+};
+
+/** Hvem som kan sende saker for kreditor – fra Brønnøysund eller fullmakt gitt av signaturberettiget */
+export type AuthorizedUser = {
+  name: string;
+  email?: string;
+  basis: string;
+  source: "brreg" | "fullmakt";
+  grantedBy?: string;
+  at: string;
 };
 
 export type Person = {
@@ -48,11 +63,21 @@ export type Onboarding = {
   orgNr?: string;
   company?: Company;
   signer?: Person;
-  signatureRight?: { ok: boolean; role?: string; signatories: string[] };
+  signatureRight?: {
+    ok: boolean;
+    role?: string;
+    signatories: string[];
+    rule: string;
+    basis: "signatur" | "prokura" | "ingen";
+    /** Andre som også må signere (signatur i fellesskap, eller når innlogget person ikke kan signere) */
+    coSigners: string[];
+  };
+  authorizedUsers?: AuthorizedUser[];
+  brregCheckedAt?: string;
   kyc?: { status: "approved" | "manual_review"; checks: { name: string; result: string }[] };
   contact?: { name: string; email: string; phone: string };
   payout?: { accountNumber: string; verifiedInKontoregister: boolean };
-  agreement?: { package: string; signedAt: string; signedBy: string; reference: string };
+  agreement?: { package: string; signedAt: string; signedBy: string; signers?: string[]; reference: string };
   draftCaseId?: string;
   firstCaseId?: string;
   provisioning?: Partial<Record<ProvisionStep, { ref: string; at: string }>>;

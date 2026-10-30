@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import type { DebtCaseRow } from "@/lib/types";
+import type { AuthorizedUser, DebtCaseRow } from "@/lib/types";
 import { formatOrgNr, nok } from "@/lib/validation";
 import { Badge, Button, Card, Check, ErrorBox, Spinner, api, cx } from "@/components/ui";
 
@@ -14,6 +14,12 @@ type PortalData = {
     user?: string;
     channel: string | null;
     integration: { partner: string; verifiedAt: string } | null;
+  };
+  access: {
+    signature?: { rule: string };
+    prokura: { rule: string } | null;
+    users: AuthorizedUser[];
+    checkedAt: string | null;
   };
   cases: PortalCase[];
 };
@@ -125,6 +131,8 @@ export function Portal() {
         ))}
       </div>
 
+      {id && <AccessPanel id={id} access={data.access} onChange={() => load(id)} />}
+
       <div className="grid lg:grid-cols-[360px_1fr] gap-6">
         <Card className="overflow-hidden self-start">
           <div className="px-5 py-4 font-semibold border-b border-black/5">Saker</div>
@@ -224,5 +232,90 @@ export function Portal() {
         )}
       </div>
     </div>
+  );
+}
+
+function AccessPanel({ id, access, onChange }: { id: string; access: PortalData["access"]; onChange: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function grant(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/portal/${id}/users`, { name, email });
+      setName("");
+      setEmail("");
+      setOpen(false);
+      onChange();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Hvem kan sende saker</h2>
+          <p className="text-sm text-ink-soft">
+            Fra Brønnøysundregistrene: «{access.signature?.rule.trim()}»{access.prokura ? ` «${access.prokura.rule.trim()}»` : ""}
+          </p>
+        </div>
+        <div className="text-right text-xs text-ink-soft">
+          Kontrollert mot Brønnøysund {access.checkedAt ? new Date(access.checkedAt).toLocaleDateString("nb-NO") : "–"}
+          <span className="block">Rolleendringer overvåkes daglig (simulert)</span>
+        </div>
+      </div>
+      <ul className="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {access.users.map((u) => (
+          <li key={u.name + u.at} className="rounded-xl bg-canvas px-4 py-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{u.name}</span>
+              <Badge tone={u.source === "brreg" ? "brand" : "gray"}>{u.source === "brreg" ? "Brønnøysund" : "Fullmakt"}</Badge>
+            </div>
+            <div className="text-xs text-ink-soft mt-1">
+              {u.basis}
+              {u.grantedBy && ` · gitt av ${u.grantedBy}`}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {!open ? (
+        <button onClick={() => setOpen(true)} className="mt-3 text-sm font-semibold text-brand-700 hover:underline min-h-11">
+          + Gi fullmakt til regnskapsfører eller ansatt
+        </button>
+      ) : (
+        <form onSubmit={grant} className="mt-4 grid sm:grid-cols-[1fr_1fr_auto] gap-2 items-start">
+          <input
+            aria-label="Navn"
+            placeholder="Navn"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded-xl border border-black/15 px-4 py-2.5 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+          />
+          <input
+            aria-label="E-post"
+            type="email"
+            placeholder="E-post"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="rounded-xl border border-black/15 px-4 py-2.5 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+          />
+          <Button type="submit" loading={busy}>
+            Signer fullmakt med BankID
+          </Button>
+          <div className="sm:col-span-3">
+            <ErrorBox message={error} />
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }

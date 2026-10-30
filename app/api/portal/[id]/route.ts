@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .filter((c) => c.creditorOrgNr === o.orgNr && c.status !== "draft")
     .map((c) => ({ ...c, phase: phaseOf(c) }));
   return NextResponse.json(
-    { customer: { name: o.company?.name, orgNr: o.orgNr, customerNumber: o.customerNumber, contact: o.contact, user: o.signer?.name, channel: o.channel?.partnerName ?? o.erp?.system ?? null, integration: o.integration ?? null }, cases },
+    { customer: { name: o.company?.name, orgNr: o.orgNr, customerNumber: o.customerNumber, contact: o.contact, user: o.signer?.name, channel: o.channel?.partnerName ?? o.erp?.system ?? null, integration: o.integration ?? null }, access: { signature: o.company?.signature, prokura: o.company?.prokura ?? null, users: o.authorizedUsers ?? [], checkedAt: o.brregCheckedAt ?? null }, cases },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

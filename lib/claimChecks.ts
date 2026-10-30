@@ -20,6 +20,8 @@ export async function runClaimChecks(
   c: Pick<DebtCase, "debtor" | "invoice" | "source" | "reminderAlreadySent" | "payments" | "notice" | "disputed" | "attachments"> & {
     documentAttached?: boolean;
     erpVerified?: boolean;
+    /** Hvem som sender saken, og grunnlaget for at de kan forplikte kreditor */
+    submitter?: { name: string; basis: string; authorized: boolean };
   },
   opts: { onboardingId?: string; excludeCaseId?: string } = {},
 ): Promise<ClaimDecision> {
@@ -33,6 +35,15 @@ export async function runClaimChecks(
     creditor.kyc?.status === "approved" ? "ok" : "fail",
     creditor.kyc?.status === "approved" ? `${creditor.company?.name} er verifisert med BankID og KYC` : "Kundekontroll mangler",
   );
+
+  if (c.submitter) {
+    add(
+      "submitter",
+      "Innsender har rett til å sende krav",
+      c.submitter.authorized ? "ok" : "fail",
+      c.submitter.authorized ? `${c.submitter.name} – ${c.submitter.basis}` : `${c.submitter.name} har verken signatur, prokura eller fullmakt for ${creditor.company?.name}`,
+    );
+  }
 
   // Skyldner
   if (c.debtor.type === "company") {

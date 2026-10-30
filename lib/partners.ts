@@ -121,7 +121,20 @@ export async function createPartnerCase(partner: Partner, input: PartnerCaseInpu
   const invoice = { ...input.invoice, amount: Number(input.invoice.amount) };
   const claimCheck = await runClaimChecks(
     customer,
-    { debtor, invoice, source: "erp", reminderAlreadySent: Boolean(input.reminderAlreadySent), notice: input.notice, payments: input.payments, erpVerified: true },
+    {
+      debtor,
+      invoice,
+      source: "erp",
+      reminderAlreadySent: Boolean(input.reminderAlreadySent),
+      notice: input.notice,
+      payments: input.payments,
+      erpVerified: true,
+      submitter: {
+        name: `${partner.name} (API)`,
+        basis: `samtykke signert av ${customer.agreement?.signedBy ?? "signaturberettiget"} etter Brønnøysund`,
+        authorized: Boolean(customer.partnerConnection),
+      },
+    },
     { onboardingId: customer.id },
   );
 

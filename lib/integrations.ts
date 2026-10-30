@@ -74,6 +74,22 @@ const COMPANIES: Record<string, Omit<Company, "orgNr">> = {
     registeredAt: "2014-05-02",
     vatRegistered: true,
     roles: [role("Daglig leder", kari, true), role("Styreleder", ola, true)],
+    signature: { rule: "Daglig leder alene. Styrets leder alene.", kind: "alone", signers: [kari.name, ola.name] },
+    accountant: { name: "Regnskapshuset Sandvika AS", orgNr: "998877660" },
+  },
+  "913579240": {
+    name: "Havbris Transport AS",
+    orgForm: "Aksjeselskap",
+    status: "Aktiv",
+    address: { street: "Havnegata 7", postalCode: "7010", city: "Trondheim" },
+    naceCode: "49.410",
+    naceText: "Godstransport på vei",
+    employees: 23,
+    registeredAt: "2011-06-15",
+    vatRegistered: true,
+    roles: [role("Daglig leder", kari, true), role("Styreleder", per, true), role("Prokurist", ola, true)],
+    signature: { rule: "Daglig leder og styrets leder i fellesskap.", kind: "jointly", signers: [kari.name, per.name] },
+    prokura: { rule: "Prokura hver for seg.", persons: [ola.name] },
   },
   "987654325": {
     name: "Bølgen Kafé AS",
@@ -86,6 +102,7 @@ const COMPANIES: Record<string, Omit<Company, "orgNr">> = {
     registeredAt: "2019-08-19",
     vatRegistered: true,
     roles: [role("Daglig leder", per, true), role("Styremedlem", kari, false)],
+    signature: { rule: "Daglig leder alene.", kind: "alone", signers: [per.name] },
   },
   "812345672": {
     name: "Nordlys Elektro Ola Hansen",
@@ -98,6 +115,7 @@ const COMPANIES: Record<string, Omit<Company, "orgNr">> = {
     registeredAt: "2021-01-11",
     vatRegistered: true,
     roles: [role("Innehaver", ola, true)],
+    signature: { rule: "Innehaver alene.", kind: "alone", signers: [ola.name] },
   },
   "934567897": {
     name: "Gammel Handel AS",
@@ -110,6 +128,7 @@ const COMPANIES: Record<string, Omit<Company, "orgNr">> = {
     registeredAt: "2008-02-14",
     vatRegistered: false,
     roles: [role("Daglig leder", ola, true)],
+    signature: { rule: "Daglig leder alene.", kind: "alone", signers: [ola.name] },
   },
   "975312461": {
     name: "Vestkyst Eiendom AS",
@@ -122,6 +141,7 @@ const COMPANIES: Record<string, Omit<Company, "orgNr">> = {
     registeredAt: "2012-10-01",
     vatRegistered: true,
     roles: [role("Daglig leder", per, true)],
+    signature: { rule: "Daglig leder alene.", kind: "alone", signers: [per.name] },
   },
   "998877660": {
     name: "Tindesport AS",
@@ -134,12 +154,14 @@ const COMPANIES: Record<string, Omit<Company, "orgNr">> = {
     registeredAt: "2016-03-30",
     vatRegistered: true,
     roles: [role("Daglig leder", ola, true)],
+    signature: { rule: "Daglig leder alene.", kind: "alone", signers: [ola.name] },
   },
 };
 
 export const DEMO_ORGNR = {
   happyPath: "923456783",
   needsCoSigner: "987654325",
+  jointSignature: "913579240",
   soleProprietor: "812345672",
   bankrupt: "934567897",
   debtors: ["975312461", "998877660"],
@@ -181,7 +203,8 @@ function generateCompany(orgNr: string): Company {
     employees: (h % 40) + 1,
     registeredAt: `${2005 + (h % 19)}-0${(h % 9) + 1}-1${h % 9}`,
     vatRegistered: true,
-    roles: [role("Daglig leder", kari, true), role("Styreleder", ola, true)],
+    roles: [role("Daglig leder", kari, true), role("Styreleder", ola, false)],
+    signature: { rule: "Daglig leder alene.", kind: "alone", signers: [kari.name] },
   };
 }
 
@@ -217,13 +240,16 @@ export function bankIdSign(person: Person, document: string, onboardingId?: stri
 // ---------- Signaturrett ----------
 
 export function checkSignatureRight(company: Company, person: Person, onboardingId?: string) {
-  return call("Brønnøysundregistrene", "GET /enheter/{orgnr}/roller", onboardingId, { orgNr: company.orgNr, person: person.name }, [200, 500], () => {
+  return call("Brønnøysundregistrene", "GET /enheter/{orgnr}/roller (signatur og prokura)", onboardingId, { orgNr: company.orgNr, person: person.name }, [200, 500], () => {
     const match = company.roles.find((r) => r.name === person.name && r.birthDate === person.birthDate);
-    return {
-      ok: Boolean(match?.canSign),
-      role: match?.type,
-      signatories: company.roles.filter((r) => r.canSign).map((r) => r.name),
-    };
+    const sig = company.signature;
+    const isSigner = sig.signers.includes(person.name);
+    const hasProkura = company.prokura?.persons.includes(person.name) ?? false;
+    const base = { role: match?.type, signatories: sig.signers, rule: sig.rule + (company.prokura ? ` ${company.prokura.rule}` : "") };
+    if (isSigner && sig.kind === "alone") return { ...base, ok: true, basis: "signatur" as const, coSigners: [] as string[] };
+    if (isSigner) return { ...base, ok: true, basis: "signatur" as const, coSigners: sig.signers.filter((n) => n !== person.name) };
+    if (hasProkura) return { ...base, ok: true, basis: "prokura" as const, coSigners: [] as string[] };
+    return { ...base, ok: false, basis: "ingen" as const, coSigners: sig.kind === "alone" ? [sig.signers[0]] : sig.signers };
   });
 }
 

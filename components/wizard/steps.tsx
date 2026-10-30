@@ -46,6 +46,7 @@ function CheckRow({ ok, warn, title, detail }: { ok?: boolean; warn?: boolean; t
 const DEMO_COMPANIES = [
   { orgNr: "923456783", label: "Fjellheim Rørlegger AS", tag: "Standard" },
   { orgNr: "987654325", label: "Bølgen Kafé AS", tag: "Må medsigneres" },
+  { orgNr: "913579240", label: "Havbris Transport AS", tag: "Signatur i fellesskap" },
   { orgNr: "812345672", label: "Nordlys Elektro", tag: "ENK" },
   { orgNr: "934567897", label: "Gammel Handel AS", tag: "Konkurs" },
 ];
@@ -236,6 +237,12 @@ export function CompanyStep({ o, update, go }: StepProps) {
                 <dt className="text-ink-soft">Roller</dt>
                 <dd>{c.roles.map((r) => `${r.name} (${r.type.toLowerCase()})`).join(", ")}</dd>
               </div>
+              <div className="sm:col-span-2">
+                <dt className="text-ink-soft">Signatur og prokura</dt>
+                <dd>
+                  {c.signature?.rule} {c.prokura?.rule}
+                </dd>
+              </div>
               <div>
                 <dt className="text-ink-soft">Ansatte</dt>
                 <dd>{c.employees}</dd>
@@ -256,6 +263,35 @@ export function CompanyStep({ o, update, go }: StepProps) {
 
 // ---------- 2. Identifisering ----------
 
+function SignatureRow({ right, name }: { right: NonNullable<OnboardingRow["signatureRight"]>; name: string }) {
+  const source = `Brønnøysundregistrene: «${right.rule.trim()}»`;
+  if (right.ok && right.coSigners.length === 0) {
+    return (
+      <CheckRow
+        ok
+        title={right.basis === "prokura" ? "Prokura bekreftet – du kan signere alene" : "Signaturrett bekreftet – du kan signere alene"}
+        detail={`${right.role ? `${name} er ${right.role.toLowerCase()}. ` : ""}${source}`}
+      />
+    );
+  }
+  if (right.ok) {
+    return (
+      <CheckRow
+        warn
+        title="Signatur i fellesskap"
+        detail={`Du signerer, og ${right.coSigners.join(" og ")} må også signere med BankID. ${source}`}
+      />
+    );
+  }
+  return (
+    <CheckRow
+      warn
+      title="Du har ikke signaturrett"
+      detail={`Du kan fortsette. Avtalen sendes til ${right.coSigners.join(" og ")} for signering, og du får fullmakt til å sende saker. ${source}`}
+    />
+  );
+}
+
 export function IdentityStep({ o, update, go }: StepProps) {
   const [open, setOpen] = useState(false);
   const done = Boolean(o.signer && o.kyc);
@@ -274,15 +310,7 @@ export function IdentityStep({ o, update, go }: StepProps) {
         <Card className="p-5 animate-fade-up">
           <div className="divide-y divide-black/5">
             <CheckRow ok title={`Identitet bekreftet: ${o.signer!.name}`} detail={`Fødselsnummer ${o.signer!.nationalIdMasked}`} />
-            {o.signatureRight?.ok ? (
-              <CheckRow ok title="Signaturrett bekreftet" detail={`${o.signatureRight.role} i ${o.company?.name}`} />
-            ) : (
-              <CheckRow
-                warn
-                title="Du har ikke signaturrett alene"
-                detail={`Du kan fortsette registreringen. Avtalen sendes til ${o.signatureRight?.signatories.join(" eller ")} for signering med BankID.`}
-              />
-            )}
+            {o.signatureRight && <SignatureRow right={o.signatureRight} name={o.signer!.name} />}
             <CheckRow
               ok
               title="Kundekontroll (hvitvaskingsloven) godkjent"
@@ -467,7 +495,11 @@ export function DetailsStep({ o, update, go }: StepProps) {
 export function AgreementStep({ o, update, go }: StepProps) {
   const [accepted, setAccepted] = useState(Boolean(o.agreement));
   const [open, setOpen] = useState(false);
-  const coSigner = o.signatureRight?.ok ? null : o.signatureRight?.signatories[0];
+  const right = o.signatureRight;
+  const coSigners = right?.coSigners ?? [];
+  // Alle som må signere etter Brønnøysund, i rekkefølge
+  const signers = [...(right?.ok ? [o.signer?.name ?? ""] : []), ...coSigners].filter(Boolean);
+  const signerLabel = signers.join(" og ");
 
   if (o.agreement) {
     return (
@@ -522,19 +554,21 @@ export function AgreementStep({ o, update, go }: StepProps) {
             Jeg har lest og godtar <span className="underline">avtalevilkårene</span> og <span className="underline">personvernerklæringen</span>.
           </span>
         </label>
-        {coSigner && (
+        {coSigners.length > 0 && (
           <div className="mt-4 rounded-xl bg-amber-50 ring-1 ring-amber-200 p-4 text-sm">
-            Du har ikke signaturrett alene. Når du trykker «Send til signering», får {coSigner} en lenke på e-post og signerer med BankID.
+            {right?.ok
+              ? `Signaturen er «${right.rule.trim()}». Du signerer først, så får ${coSigners.join(" og ")} en lenke på e-post og signerer med BankID.`
+              : `Du har ikke signaturrett. ${coSigners.join(" og ")} får en lenke på e-post og signerer med BankID. Avtalen gir deg fullmakt til å sende saker.`}
           </div>
         )}
         <Button className="mt-5 w-full sm:w-auto" disabled={!accepted} onClick={() => setOpen(true)}>
-          {coSigner ? `Send til signering hos ${coSigner}` : "Signer med BankID"}
+          {coSigners.length === 0 ? "Signer med BankID" : right?.ok ? `Signer og send til ${coSigners.join(" og ")}` : `Send til signering hos ${coSigners.join(" og ")}`}
         </Button>
       </Card>
       {open && (
         <BankIdModal
           mode="sign"
-          signerName={coSigner ?? o.signer?.name}
+          signerName={signerLabel}
           documentTitle="Intrum Optimal – avtale"
           onClose={() => setOpen(false)}
           onConfirm={async () => {

@@ -3,7 +3,7 @@ import { db, newId, type Row } from "./db";
 import * as integrations from "./integrations";
 import { runClaimChecks } from "./claimChecks";
 import { initialEvents } from "./lifecycle";
-import type { CustomerProfile, DebtCase, FunnelEvent, Onboarding, StepKey } from "./types";
+import type { AuthorizedUser, CustomerProfile, DebtCase, FunnelEvent, Onboarding, StepKey } from "./types";
 import { STEPS } from "./types";
 import { cleanDigits, isEmail, isValidAccountNumber, isValidOrgNr } from "./validation";
 
@@ -56,7 +56,16 @@ export async function setCompany(id: string, orgNrRaw: string) {
     throw new UserError(`${company.name} er registrert som «${company.status}» i Brønnøysundregistrene, og kan ikke registreres digitalt. Kontakt oss, så hjelper vi deg.`);
   }
   // Ny bedrift nullstiller tidligere identitetssjekk
-  return advance(o, "identity", { orgNr, company, status: "started", blockedReason: undefined, signer: undefined, signatureRight: undefined, kyc: undefined });
+  return advance(o, "identity", {
+    orgNr,
+    company,
+    status: "started",
+    blockedReason: undefined,
+    signer: undefined,
+    signatureRight: undefined,
+    kyc: undefined,
+    brregCheckedAt: new Date().toISOString(),
+  });
 }
 
 // ---------- Steg 2: BankID, signaturrett, KYC ----------
@@ -125,19 +134,45 @@ export const PACKAGE_NAME = "Intrum Optimal";
 
 export async function signAgreement(id: string) {
   const o = await getOnboarding(id);
-  if (!o.signer || !o.company) throw new UserError("Du må identifisere deg først");
-  let signerPerson = o.signer;
-  if (!o.signatureRight?.ok) {
-    // Prototype: simulerer at en med signaturrett signerer via BankID-lenke på e-post
-    const name = o.signatureRight?.signatories[0];
-    const p = integrations.TEST_PERSONS.find((t) => t.name === name);
-    if (!p) throw new UserError("Fant ingen med signaturrett");
-    signerPerson = p;
+  if (!o.signer || !o.company || !o.signatureRight) throw new UserError("Du må identifisere deg først");
+  const right = o.signatureRight;
+  // Alle som etter Brønnøysund må signere: innlogget person (hvis signaturberettiget) + medsignatarer
+  const names = [...(right.ok ? [o.signer.name] : []), ...right.coSigners];
+  const persons = names.map((n) => (n === o.signer!.name ? o.signer! : integrations.TEST_PERSONS.find((t) => t.name === n)));
+  if (!persons.length || persons.some((p) => !p)) throw new UserError("Fant ikke alle som må signere");
+  const document = `${PACKAGE_NAME} – avtale for ${o.company.name}`;
+  // Prototype: medsignatarer får lenke på e-post og signerer med BankID – her simulert fortløpende
+  const sigs = [];
+  for (const p of persons) sigs.push(await integrations.bankIdSign(p!, document, id));
+  const signedAt = sigs.at(-1)!.signedAt;
+
+  // Hvem kan sende saker: signatur og prokura fra Brønnøysund, og den som registrerte (fullmakt fra signatarene)
+  const fromBrreg = [
+    ...o.company.signature.signers.map((n) => ({ name: n, basis: `Signatur: ${o.company!.signature.rule}` })),
+    ...(o.company.prokura?.persons ?? []).map((n) => ({ name: n, basis: `Prokura: ${o.company!.prokura!.rule}` })),
+  ];
+  const authorizedUsers: AuthorizedUser[] = fromBrreg.map((u) => ({
+    ...u,
+    source: "brreg",
+    email: u.name === o.signer!.name ? o.contact?.email : undefined,
+    at: signedAt,
+  }));
+  if (!authorizedUsers.some((u) => u.name === o.signer!.name)) {
+    authorizedUsers.push({
+      name: o.signer.name,
+      email: o.contact?.email,
+      basis: "Fullmakt til å sende saker, gitt i avtalen",
+      source: "fullmakt",
+      grantedBy: names.join(" og "),
+      at: signedAt,
+    });
   }
-  const sig = await integrations.bankIdSign(signerPerson, `${PACKAGE_NAME} – avtale for ${o.company.name}`, id);
+
   // Kunder fra ERP-partner sender saker fra ERP – hopper over «første sak» i skjemaet
   return advance(o, o.channel ? "submit" : "case", {
-    agreement: { package: PACKAGE_NAME, signedAt: sig.signedAt, signedBy: sig.signer, reference: sig.reference },
+    agreement: { package: PACKAGE_NAME, signedAt, signedBy: names.join(" og "), signers: names, reference: sigs.map((x) => x.reference).join(", ") },
+    authorizedUsers,
+    brregCheckedAt: signedAt,
   });
 }
 
@@ -193,7 +228,17 @@ export async function saveCase(id: string, input: CaseInput) {
   const outstanding = Math.round((amount - payments.reduce((s, p) => s + p.amount, 0)) * 100) / 100;
 
   const caseId = o.draftCaseId ?? newId("case");
-  const claimCheck = await runClaimChecks(o, { ...input, payments, invoice: { ...invoice, amount } }, { onboardingId: id, excludeCaseId: caseId });
+  const submitter = o.authorizedUsers?.find((u) => u.name === o.signer?.name);
+  const claimCheck = await runClaimChecks(
+    o,
+    {
+      ...input,
+      payments,
+      invoice: { ...invoice, amount },
+      submitter: { name: o.signer?.name ?? "Ukjent", basis: submitter?.basis ?? "Ingen registrert rett", authorized: Boolean(submitter) },
+    },
+    { onboardingId: id, excludeCaseId: caseId },
+  );
   const noticeOk = claimCheck.checks.some((c) => c.key === "notice" && c.status === "ok");
 
   const data: DebtCase = {
@@ -335,4 +380,27 @@ export async function connectErp(id: string, system: string) {
   const res = await integrations.erpConnect(system, o.orgNr, id);
   await db.update<Onboarding>("onboardings", id, { erp: { system, connectedAt: new Date().toISOString(), autoTransfer: true } });
   return res;
+}
+
+// ---------- Fullmakter (kundeportalen) ----------
+
+export async function grantAuthorization(id: string, input: { name?: string; email?: string }) {
+  const o = await getOnboarding(id);
+  if (o.status !== "completed") throw new UserError("Fant ingen aktiv kunde");
+  if (!input.name?.trim()) throw new UserError("Fyll inn navn");
+  if (!isEmail(input.email ?? "")) throw new UserError("E-postadressen ser ikke riktig ut");
+  const canGrant = o.signer && (o.company?.signature?.signers.includes(o.signer.name) || o.company?.prokura?.persons.includes(o.signer.name));
+  if (!canGrant) throw new UserError("Bare personer med signatur eller prokura i Brønnøysundregistrene kan gi fullmakt");
+  // Prototype: fullmakten signeres av den som er innlogget (signaturberettiget) med BankID
+  const grantor = o.signer?.name ?? "signaturberettiget";
+  const sig = o.signer ? await integrations.bankIdSign(o.signer, `Fullmakt til å sende saker for ${o.company?.name}`, id) : null;
+  const user: AuthorizedUser = {
+    name: input.name.trim(),
+    email: input.email!.trim(),
+    basis: `Fullmakt signert med BankID${sig ? ` (${sig.reference})` : ""}`,
+    source: "fullmakt",
+    grantedBy: grantor,
+    at: new Date().toISOString(),
+  };
+  return (await db.update<Onboarding>("onboardings", id, { authorizedUsers: [...(o.authorizedUsers ?? []), user] }))!;
 }

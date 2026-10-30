@@ -30,8 +30,11 @@ Kravkontrollen viser også 60-dagersgrensen for provisjon i Intrum Optimal.
 |---|---|---|
 | 923 456 783 | Fjellheim Rørlegger AS | Standard (Kari Nordmann er daglig leder) |
 | 987 654 325 | Bølgen Kafé AS | Kari har ikke signaturrett → avtalen sendes til Per Olsen |
+| 913 579 240 | Havbris Transport AS | Signatur i fellesskap (Kari + Per). Ola Hansen har prokura og kan signere alene |
 | 812 345 672 | Nordlys Elektro | Enkeltpersonforetak (Ola Hansen) |
 | 934 567 897 | Gammel Handel AS | Under konkurs → stoppes |
+
+Signatur og prokura hentes (fiktivt) fra Brønnøysundregistrene. De som må signere, signerer avtalen med BankID; den som registrerer uten signaturrett får fullmakt i avtalen. Kravkontrollen sjekker at innsender har signatur, prokura eller fullmakt, og i kundeportalen kan signaturberettigede gi fullmakt til regnskapsfører eller ansatte.
 
 Andre gyldige org.nr gir en generert fiktiv bedrift. BankID-testbrukere: Kari Nordmann, Ola Hansen, Per Olsen.
 
