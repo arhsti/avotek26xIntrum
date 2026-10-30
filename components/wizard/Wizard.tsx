@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { STEPS, STEP_LABELS, type DebtCaseRow, type OnboardingRow, type StepKey } from "@/lib/types";
 import { formatOrgNr } from "@/lib/validation";
 import { Badge, Card, Check, Spinner, api, cx } from "../ui";
@@ -26,6 +26,15 @@ export function Wizard() {
   const [draftCase, setDraftCase] = useState<DebtCaseRow | null>(null);
   const [view, setView] = useState<StepKey>("company");
 
+  // Brukeren kan navigere bort mens registreringen lastes – da skal vi ikke røre adressen
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
   const start = useCallback(async (fresh = false) => {
     const params = new URLSearchParams(window.location.search);
     const fromUrl = params.get("id");
@@ -38,6 +47,7 @@ export function Wizard() {
     if (!loaded) loaded = { onboarding: await api<OnboardingRow>("/api/onboarding"), draftCase: null };
     const ob = loaded!.onboarding;
     storage("set", ob.id);
+    if (!mounted.current || window.location.pathname !== "/onboarding") return;
     window.history.replaceState(null, "", `/onboarding?id=${ob.id}`);
     setO(ob);
     setDraftCase(loaded!.draftCase);

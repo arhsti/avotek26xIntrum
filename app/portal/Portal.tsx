@@ -54,7 +54,8 @@ export function Portal() {
   useEffect(() => {
     let oid = new URLSearchParams(window.location.search).get("id");
     try {
-      oid ??= localStorage.getItem("intrum-portal-id") ?? localStorage.getItem("intrum-onboarding-id");
+      // Bare fullførte kunder – en uferdig registrering har ingen portal
+      oid ??= localStorage.getItem("intrum-portal-id");
     } catch {}
     setId(oid);
     if (oid) load(oid);
