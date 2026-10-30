@@ -313,6 +313,11 @@ export function IdentityStep({ o, update, go }: StepProps) {
 
 // ---------- 3. Kontakt og utbetaling ----------
 
+// Speiler kvalifiseringen på serveren (lib/onboarding.ts)
+const STANDARD_ERP_OPTIONS = ["Tripletex", "PowerOffice Go", "Visma", "Xledger", "24SevenOffice", "Fiken", "Ingen / annet enkelt"];
+const ERP_OPTIONS = [...STANDARD_ERP_OPTIONS, "SAP", "Microsoft Dynamics", "Eget system"];
+const SPECIAL_NEEDS = ["Tilpasset integrasjon eller filoverføring", "Flere selskaper i samme konsern", "Krav i utlandet", "Egen avtale om priser"];
+
 export function DetailsStep({ o, update, go }: StepProps) {
   const [form, setForm] = useState({
     name: o.contact?.name ?? o.signer?.name ?? "",
@@ -323,6 +328,9 @@ export function DetailsStep({ o, update, go }: StepProps) {
       : o.prefill?.accountNumber
         ? formatAccountNumber(o.prefill.accountNumber)
         : "",
+    erp: o.profile?.erp ?? "",
+    volume: o.profile?.volume ?? "1-5",
+    needs: o.profile?.needs ?? ([] as string[]),
   });
   const [suggested, setSuggested] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -333,7 +341,8 @@ export function DetailsStep({ o, update, go }: StepProps) {
     api<{ accounts: string[] }>(`/api/onboarding/${o.id}/accounts`).then((r) => setSuggested(r.accounts)).catch(() => {});
   }, [o.id]);
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: "name" | "email" | "phone" | "accountNumber") => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
+  const advisor = form.volume === "100+" || form.needs.length > 0 || (form.erp !== "" && !STANDARD_ERP_OPTIONS.includes(form.erp));
   const errors = {
     email: form.email && !isEmail(form.email) ? "Sjekk e-postadressen" : undefined,
     accountNumber:
@@ -386,6 +395,63 @@ export function DetailsStep({ o, update, go }: StepProps) {
           )}
         </div>
       </div>
+
+      <Card className="mt-6 p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold">Om bedriften</h2>
+          <p className="text-sm text-ink-soft">Tre raske spørsmål, så vet vi om standardløsningen passer – eller om en rådgiver bør ta kontakt.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <label className="block">
+            <span className="block text-sm font-medium mb-1.5">Regnskapssystem</span>
+            <select
+              value={form.erp}
+              onChange={(e) => setForm({ ...form, erp: e.target.value })}
+              className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-base outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+            >
+              <option value="">Velg …</option>
+              {ERP_OPTIONS.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="block text-sm font-medium mb-1.5">Omtrent hvor mange saker i måneden?</span>
+            <select
+              value={form.volume}
+              onChange={(e) => setForm({ ...form, volume: e.target.value as typeof form.volume })}
+              className="w-full rounded-xl border border-black/15 bg-white px-4 py-3 text-base outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
+            >
+              <option value="1-5">1–5</option>
+              <option value="6-20">6–20</option>
+              <option value="21-100">21–100</option>
+              <option value="100+">Over 100</option>
+            </select>
+          </label>
+        </div>
+        <fieldset>
+          <legend className="text-sm font-medium mb-2">Har dere behov for noe av dette? (valgfritt)</legend>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {SPECIAL_NEEDS.map((n) => (
+              <label key={n} className="flex gap-2 items-start text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.needs.includes(n)}
+                  onChange={(e) => setForm({ ...form, needs: e.target.checked ? [...form.needs, n] : form.needs.filter((x) => x !== n) })}
+                  className="mt-0.5 size-4 accent-brand-600"
+                />
+                {n}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {advisor && (
+          <div className="rounded-xl bg-brand-50 p-3 text-sm animate-fade-up">
+            En rådgiver kontakter deg innen 1 virkedag for å sette opp det dere trenger. Du kan likevel fullføre og sende første sak nå.
+          </div>
+        )}
+      </Card>
+
       <div className="mt-6 space-y-4">
         <ErrorBox message={error} />
         <Button type="submit" loading={loading}>

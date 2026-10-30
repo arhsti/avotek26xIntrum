@@ -7,7 +7,14 @@ import { Badge, Button, Card, Check, ErrorBox, Spinner, api, cx } from "@/compon
 
 type PortalCase = DebtCaseRow & { phase: { code: string; label: string } };
 type PortalData = {
-  customer: { name: string; orgNr: string; customerNumber: string; user?: string; channel: string | null };
+  customer: {
+    name: string;
+    orgNr: string;
+    customerNumber: string;
+    user?: string;
+    channel: string | null;
+    integration: { partner: string; verifiedAt: string } | null;
+  };
   cases: PortalCase[];
 };
 
@@ -93,7 +100,16 @@ export function Portal() {
             Org.nr {formatOrgNr(data.customer.orgNr)} · Kundenr. {data.customer.customerNumber} · Innlogget med BankID som {data.customer.user} (simulert)
           </div>
         </div>
-        {data.customer.channel && <Badge>Saker sendes fra {data.customer.channel}</Badge>}
+        {data.customer.channel && (
+          <div className="flex flex-col items-end gap-1">
+            <Badge>Saker sendes fra {data.customer.channel}</Badge>
+            {data.customer.integration ? (
+              <Badge tone="green">Integrasjon verifisert {new Date(data.customer.integration.verifiedAt).toLocaleDateString("nb-NO")}</Badge>
+            ) : (
+              <Badge tone="gray">Venter på første sak fra ERP</Badge>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

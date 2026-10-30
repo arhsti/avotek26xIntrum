@@ -102,7 +102,8 @@ export default function Page() {
             </tbody>
           </table>
           <p className="px-6 py-4 text-xs text-ink-soft">
-            Flere av disse vises allerede live i <Link href="/admin" className="underline">Innsikt</Link>.
+            Flere av disse vises allerede live i <Link href="/admin" className="underline">Innsikt</Link>. Hvert måltall er koblet til et suksesskriterium i
+            prosesskartet – se <Link href="/sammenligning" className="underline">I dag vs. ny flyt</Link>.
           </p>
         </div>
 

@@ -59,13 +59,16 @@ export type Onboarding = {
   customerNumber?: string;
   erp?: { system: string; connectedAt: string; autoTransfer: boolean };
   prefill?: InvoicePrefill;
+  profile?: CustomerProfile;
+  /** Settes når første sak via ERP er mottatt – erstatter test-saker og «Test godkjent?» */
+  integration?: { partner: string; verifiedAt: string; firstCaseId: string };
   channel?: { partner: string; partnerName: string; returnUrl?: string };
   partnerConnection?: { partner: string; connectedAt: string; scopes: string[] };
 };
 
 export type Partner = { id: string; name: string; apiKey: string };
 
-export type ProvisionStep = "salesforce" | "pink_client" | "portal" | "pink_case" | "notice" | "partner_access" | "email";
+export type ProvisionStep = "salesforce" | "pink_client" | "portal" | "pink_case" | "notice" | "partner_access" | "advisor" | "email";
 
 export type ClaimCheck = { key: string; name: string; status: "ok" | "warn" | "fail" | "info"; detail: string };
 export type ClaimDecision = { decision: "approved" | "manual_review" | "rejected"; checks: ClaimCheck[] };
@@ -125,4 +128,13 @@ export type InvoicePrefill = {
   accountNumber?: string;
   debtor: DebtCase["debtor"];
   invoice: DebtCase["invoice"];
+};
+
+/** Kvalifisering (fase 2 i dagens prosesskart): passer kunden standard selvbetjening? */
+export type CustomerProfile = {
+  erp: string;
+  volume: "1-5" | "6-20" | "21-100" | "100+";
+  needs: string[];
+  segment: "standard" | "advisor";
+  reasons: string[];
 };

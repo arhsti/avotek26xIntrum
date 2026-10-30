@@ -58,6 +58,41 @@ export default async function Admin() {
   const autoApproved = submitted.filter((c) => c.claimCheck?.decision === "approved").length;
   const nameByOrg = new Map(onboardings.map((o) => [o.orgNr, o.company?.name]));
 
+  // Proaktiv oppfølging (fase 6 i dagens prosesskart): hvem bør noen ta kontakt med?
+  const now = Date.now();
+  const STALE_MIN = 15; // prototype: 15 min uten aktivitet regnes som frafall (i drift: f.eks. 1 døgn)
+  const casesByOrg = (org?: string) => cases.filter((c) => c.creditorOrgNr === org && c.status !== "draft");
+  const followUps: { who: string; signal: string; action: string; role: string; tone: "amber" | "brand" | "red" }[] = [];
+  for (const o of onboardings) {
+    const name = o.company?.name ?? "Ukjent bedrift";
+    const contact = o.contact?.email ? ` · ${o.contact.email}` : "";
+    const idleMin = (now - new Date(o.updatedAt).getTime()) / 60000;
+    if (o.status === "blocked") {
+      followUps.push({ who: name, signal: o.blockedReason ?? "Stoppet", action: "Ring kunden og forklar alternativer", role: "Kundesupport", tone: "red" });
+    } else if (o.status === "started" && o.company && idleMin > STALE_MIN) {
+      followUps.push({ who: name + contact, signal: `Falt fra i steget «${STEP_LABELS[o.step]}» for ${Math.round(idleMin)} min siden`, action: "Send påminnelse med lenke for å fortsette", role: "Automatisk / Kundesupport", tone: "amber" });
+    }
+    if (o.status === "completed" && o.profile?.segment === "advisor") {
+      followUps.push({ who: name + contact, signal: `Passer ikke standard: ${o.profile.reasons.join(", ")}`, action: "Rådgiver kontakter kunden innen 1 virkedag", role: "Salg / Partnerskap", tone: "brand" });
+    }
+    const webCases = casesByOrg(o.orgNr).filter((c) => c.source !== "erp").length;
+    if (o.status === "completed" && !o.erp && !o.channel && webCases >= 3) {
+      followUps.push({ who: name, signal: `${webCases} saker sendt manuelt`, action: "Tilby ERP-integrasjon", role: "Kundesupport", tone: "brand" });
+    }
+    if ((o.erp || o.partnerConnection) && !o.integration && casesByOrg(o.orgNr).every((c) => c.source !== "erp")) {
+      followUps.push({ who: name, signal: `Koblet til ${o.erp?.system ?? o.channel?.partnerName}, men ingen sak fra ERP ennå`, action: "Sjekk at kunden vet hvordan man sender fra ERP", role: "Kundesupport", tone: "amber" });
+    }
+  }
+  for (const c of cases.filter((x) => x.status === "manual_review")) {
+    followUps.push({
+      who: `${nameByOrg.get(c.creditorOrgNr) ?? c.creditorOrgNr} → ${c.debtor.name}`,
+      signal: c.claimCheck?.checks.filter((x) => x.status === "warn").map((x) => x.detail).join(" · ") || "Manuell kontroll",
+      action: c.disputed ? "Vurder innsigelsen" : "Kontroller saken",
+      role: "Saksbehandler",
+      tone: "amber",
+    });
+  }
+
   const funnelSteps = STEPS.filter((s) => s !== "submit");
   const funnel = funnelSteps.map((s) => {
     const idx = STEPS.indexOf(s);
@@ -97,6 +132,50 @@ export default async function Admin() {
           </div>
         ))}
       </div>
+
+      <section className="rounded-2xl bg-white ring-1 ring-black/5 overflow-hidden">
+        <div className="p-6 pb-3">
+          <h2 className="font-semibold">Oppfølging</h2>
+          <p className="text-sm text-ink-soft">Kunder og saker der et menneske bør ta kontakt – i stedet for at alle nye kunder følges opp manuelt.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[760px]">
+            <thead className="text-left text-ink-soft border-y border-black/5 bg-canvas">
+              <tr>
+                <th className="px-6 py-2 font-medium">Hvem</th>
+                <th className="py-2 font-medium">Signal</th>
+                <th className="py-2 font-medium">Neste steg</th>
+                <th className="py-2 pr-6 font-medium">Rolle</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-black/5">
+              {followUps.map((f, i) => (
+                <tr key={i} className="align-top">
+                  <td className="px-6 py-2.5">{f.who}</td>
+                  <td className="py-2.5 text-ink-soft max-w-[320px]">{f.signal}</td>
+                  <td className="py-2.5">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        f.tone === "red" ? "bg-red-100 text-red-700" : f.tone === "amber" ? "bg-amber-100 text-amber-800" : "bg-brand-100 text-brand-700"
+                      }`}
+                    >
+                      {f.action}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-6 text-ink-soft whitespace-nowrap">{f.role}</td>
+                </tr>
+              ))}
+              {followUps.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-6 py-6 text-ink-soft">
+                    Ingen trenger oppfølging nå.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="rounded-2xl bg-white ring-1 ring-black/5 p-6">
         <h2 className="font-semibold">Trakt</h2>
@@ -139,7 +218,7 @@ export default async function Admin() {
                   <td className="py-2.5">{pill(c.status)}</td>
                   <td className="py-2.5 pr-6 text-xs text-ink-soft max-w-[240px]">
                     {c.claimCheck?.checks
-                      .filter((x) => x.status !== "ok")
+                      .filter((x) => x.status === "warn" || x.status === "fail")
                       .map((x) => x.detail)
                       .join(" · ") || "–"}
                   </td>
@@ -176,7 +255,11 @@ export default async function Admin() {
                 <tr key={o.id}>
                   <td className="px-6 py-2.5 tabular-nums text-ink-soft">{fmtTime(o.startedAt)}</td>
                   <td className="py-2.5">{o.company?.name ?? <span className="text-ink-soft">–</span>}</td>
-                  <td className="py-2.5">{o.channel?.partnerName ?? "intrum.no"}</td>
+                  <td className="py-2.5">
+                    {o.channel?.partnerName ?? "intrum.no"}
+                    {o.profile?.segment === "advisor" && <span className="block text-xs text-brand-700">Rådgiver</span>}
+                    {o.integration && <span className="block text-xs text-emerald-700">Integrasjon verifisert</span>}
+                  </td>
                   <td className="py-2.5">{STEP_LABELS[o.step]}</td>
                   <td className="py-2.5">
                     {pill(o.status)}

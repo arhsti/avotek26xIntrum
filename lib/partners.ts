@@ -161,6 +161,13 @@ export async function createPartnerCase(partner: Partner, input: PartnerCaseInpu
         ? "Betalingsoppfordring sendes skyldner"
         : "Inkassovarsel sendes skyldner (14 dagers frist)",
   });
+  // Første sak via ERP verifiserer integrasjonen – ingen egne test-saker per kunde
+  if (!customer.integration) {
+    await db.update<Onboarding>("onboardings", customer.id, {
+      integration: { partner: partner.name, verifiedAt: new Date().toISOString(), firstCaseId: id },
+    });
+    await integrations.logCall("Partner-API", "Integrasjon verifisert: første sak mottatt og registrert", customer.id, { partner: partner.name }, { caseNumber: pinkCase.ref });
+  }
   return { created: true, case: toResponse(row) };
 }
 

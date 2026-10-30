@@ -3,7 +3,7 @@ import { db, newId, type Row } from "./db";
 import * as integrations from "./integrations";
 import { runClaimChecks } from "./claimChecks";
 import { initialEvents } from "./lifecycle";
-import type { DebtCase, FunnelEvent, Onboarding, StepKey } from "./types";
+import type { CustomerProfile, DebtCase, FunnelEvent, Onboarding, StepKey } from "./types";
 import { STEPS } from "./types";
 import { cleanDigits, isEmail, isValidAccountNumber, isValidOrgNr } from "./validation";
 
@@ -81,7 +81,25 @@ export async function suggestedAccounts(id: string) {
 
 // ---------- Steg 3: kontakt og utbetaling ----------
 
-export async function setDetails(id: string, input: { name: string; email: string; phone: string; accountNumber: string }) {
+// ERP-er med standard integrasjon i dag (se /sammenligning)
+const STANDARD_ERP = ["Tripletex", "PowerOffice Go", "Visma", "Xledger", "24SevenOffice", "Fiken", "Ingen / annet enkelt"];
+
+export function qualify(input: { erp?: string; volume?: string; needs?: string[] }): CustomerProfile {
+  const erp = input.erp || "Ingen / annet enkelt";
+  const volume = (["1-5", "6-20", "21-100", "100+"].includes(input.volume ?? "") ? input.volume : "1-5") as CustomerProfile["volume"];
+  const needs = (input.needs ?? []).filter(Boolean);
+  const reasons = [
+    ...(volume === "100+" ? ["Over 100 saker i måneden"] : []),
+    ...(!STANDARD_ERP.includes(erp) ? [`Regnskapssystem uten standard integrasjon (${erp})`] : []),
+    ...needs,
+  ];
+  return { erp, volume, needs, segment: reasons.length ? "advisor" : "standard", reasons };
+}
+
+export async function setDetails(
+  id: string,
+  input: { name: string; email: string; phone: string; accountNumber: string; erp?: string; volume?: string; needs?: string[] },
+) {
   const o = await getOnboarding(id);
   if (!o.orgNr) throw new UserError("Velg bedrift først");
   const accountNumber = cleanDigits(input.accountNumber ?? "");
@@ -90,9 +108,14 @@ export async function setDetails(id: string, input: { name: string; email: strin
   if (cleanDigits(input.phone ?? "").length < 8) throw new UserError("Telefonnummeret må ha minst 8 siffer");
   if (!isValidAccountNumber(accountNumber)) throw new UserError("Kontonummeret er ikke gyldig (11 siffer, kontrollsiffer stemmer ikke)");
   const v = await integrations.kontoregisterVerify(o.orgNr, accountNumber, id);
+  const profile = qualify(input);
+  if (profile.segment === "advisor") {
+    await integrations.logCall("Kvalifisering", "Ikke standard – rådgiver varsles i Salesforce", id, { erp: profile.erp, volume: profile.volume }, profile);
+  }
   return advance(o, "agreement", {
     contact: { name: input.name.trim(), email: input.email.trim(), phone: input.phone.trim() },
     payout: { accountNumber, verifiedInKontoregister: v.ownerMatches },
+    profile,
   });
 }
 
@@ -225,6 +248,7 @@ export const PROVISION_LABELS = {
   portal: { label: "Tilgang til kundeportalen aktiveres", system: "Kundeportal", replaces: "Manuell portalaktivering" },
   pink_case: { label: "Første sak registreres", system: "MuleSoft → Pink", replaces: "Kunden venter på aktivering" },
   notice: { label: "Første brev til skyldner planlegges", system: "MuleSoft → Pink", replaces: "—" },
+  advisor: { label: "Rådgiver får oppgave om å kontakte kunden", system: "Salesforce", replaces: "Kartleggingsmøte før avtale" },
   partner_access: { label: "ERP-systemet får tilgang til å sende saker", system: "MuleSoft", replaces: "Manuelt integrasjonsprosjekt" },
   email: { label: "Velkomst og bekreftelse sendes", system: "E-post", replaces: "Manuell velkomst" },
 } as const;
@@ -252,10 +276,11 @@ export async function* submit(id: string): AsyncGenerator<ProvisionEvent> {
     { key: "pink_case", run: () => integrations.provision.pinkCase(done.pink_client!.ref, caseId, id) },
     { key: "notice", run: () => integrations.provision.notice(done.pink_case!.ref, debtCase!.reminderAlreadySent, id) },
     { key: "partner_access", run: () => integrations.provision.partnerAccess(o.channel!.partnerName, done.pink_client!.ref, id) },
+    { key: "advisor", run: () => integrations.provision.advisorTask(company, o.profile?.reasons ?? [], id) },
     { key: "email", run: () => integrations.provision.email(contact.email, id) },
   ];
   const steps = allSteps.filter((s) =>
-    partnerMode ? !["pink_case", "notice"].includes(s.key) : s.key !== "partner_access" && !(manualReview && s.key === "notice"),
+    s.key === "advisor" ? o.profile?.segment === "advisor" : partnerMode ? !["pink_case", "notice"].includes(s.key) : s.key !== "partner_access" && !(manualReview && s.key === "notice"),
   );
 
   for (const s of steps) {

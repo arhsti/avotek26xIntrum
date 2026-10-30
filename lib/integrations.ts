@@ -318,6 +318,10 @@ export const provision = {
     call("MuleSoft", "Partner Experience API: POST /partner-connections (scopes: cases:write cases:read)", onboardingId, { partnerName, customerNumber }, [300, 700], () => ({
       ref: `conn_${Math.random().toString(36).slice(2, 10)}`,
     })),
+  advisorTask: (company: Company, reasons: string[], onboardingId: string) =>
+    call("Salesforce", "POST /sobjects/Task (rådgiver: kontakt kunden innen 1 virkedag)", onboardingId, { orgNr: company.orgNr, reasons }, [300, 600], () => ({
+      ref: `00T${Math.random().toString(36).slice(2, 12).toUpperCase()}`,
+    })),
   email: (to: string, onboardingId: string) =>
     call("E-post", "POST /send (velkomst + saksbekreftelse)", onboardingId, { to, template: "smb-welcome-first-case" }, [200, 500], () => ({
       ref: `msg_${Math.random().toString(36).slice(2, 10)}`,

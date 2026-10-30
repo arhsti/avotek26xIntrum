@@ -114,7 +114,11 @@ export function DoneStep({ o, update, onRestart }: StepProps & { onRestart: () =
         <div className="sm:col-span-2">
           <div className="font-medium mb-2">Dette skjer videre</div>
           <ol className="space-y-2 text-ink-soft">
-            {(partner
+            {[
+              ...(o.profile?.segment === "advisor"
+                ? [`En rådgiver kontakter deg innen 1 virkedag (${o.profile.reasons.join(", ").toLowerCase()})`]
+                : []),
+              ...(partner
               ? [
                   `Send forfalte fakturaer til inkasso direkte fra ${partner.partnerName}`,
                   `Du får bekreftelse på e-post til ${o.contact?.email}`,
@@ -124,8 +128,8 @@ export function DoneStep({ o, update, onRestart }: StepProps & { onRestart: () =
                   `Du får bekreftelse på e-post til ${o.contact?.email}`,
                   "Følg saken i kundeportalen – du logger inn med BankID, ingen passord å aktivere",
                   "Pengene utbetales til kontoen din når skyldner betaler",
-                ]
-            ).map((t, i) => (
+                ]),
+            ].map((t, i) => (
               <li key={t} className="flex gap-3">
                 <span className="size-6 shrink-0 rounded-full bg-brand-100 text-brand-700 grid place-items-center text-xs font-semibold">{i + 1}</span>
                 {t}
@@ -155,6 +159,7 @@ export function DoneStep({ o, update, onRestart }: StepProps & { onRestart: () =
           {o.erp ? (
             <div className="mt-4 rounded-xl bg-emerald-50 ring-1 ring-emerald-200 p-4 text-sm">
               <div className="font-medium">Koblet til {o.erp.system}</div>
+              <div className="text-ink-soft">Integrasjonen verifiseres automatisk når første sak kommer fra {o.erp.system} – ingen test-saker.</div>
               {erpResult && <div className="text-ink-soft">Vi fant {erpResult.overdueInvoicesFound} forfalte fakturaer du kan sende til inkasso.</div>}
             </div>
           ) : (

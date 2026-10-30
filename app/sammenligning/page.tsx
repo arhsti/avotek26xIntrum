@@ -3,16 +3,80 @@ import Link from "next/link";
 
 export const metadata: Metadata = { title: "I dag vs. ny flyt – Intrum (prototype)" };
 
-const rows: { today: string; who: string; next: string; how: string }[] = [
-  { today: "Henvendelse via nettside eller partner, registreres som lead i Salesforce", who: "Digital Sales", next: "Kunden starter selv på nett eller fra ERP", how: "Selvbetjent" },
-  { today: "Kartlegging av behov, ERP, volum og ansvar", who: "Salg", next: "Ikke nødvendig for første sak – standardpakke for SMB", how: "Fjernet" },
-  { today: "Standardavtalen Intrum Optimal sendes ut og signeres", who: "Salg", next: "Intrum Optimal signeres med BankID i flyten", how: "BankID" },
-  { today: "Identitet og fullmakt kontrolleres", who: "Salg / kundeservice", next: "BankID + signaturrett fra Brønnøysund + KYC/AML", how: "Automatisk" },
-  { today: "Kunden registreres manuelt i Pink", who: "Kundeservice", next: "Opprettes via integrasjonslaget når avtalen er signert (krever Pink-adapter)", how: "Automatisk" },
-  { today: "Kunden registreres og aktiveres i kundeportalen", who: "Kundeservice", next: "Bruker opprettes og aktiveres, innlogging med BankID", how: "Automatisk" },
-  { today: "Velkomst og oppfølging", who: "Kundeteam", next: "Velkomst og saksbekreftelse på e-post", how: "Automatisk" },
-  { today: "Integrasjon per kunde (ofte filbasert, f.eks. Tripletex): oppsett, test, aktivering", who: "Teknisk team + kunde", next: "ERP-partner integrerer én gang mot Intrums API – kunden aktiverer selv med samtykke", how: "Standard-API" },
-  { today: "Første sak sendes etter at alt over er ferdig", who: "Kunden", next: "Første sak sendes i samme flyt, med kravkontroll", how: "Minutter" },
+// Dagens prosesskart (Intrum, «Behandling av SMB-kunder som ønsker integrasjon»), fase for fase
+type Phase = {
+  n: number;
+  name: string;
+  today: string[];
+  rolesToday: string;
+  next: string[];
+  rolesNext: string;
+  how: string;
+};
+
+const phases: Phase[] = [
+  {
+    n: 1,
+    name: "Henvendelse og behov",
+    today: ["Henvendelse via nettside, partner eller eksisterende kunde", "Registreres i CRM (lead/case)", "Tildeles ansvarlig (salg, partnerskap eller kundeteam)"],
+    rolesToday: "Salg / Partnerskap",
+    next: ["Kunden starter selv: laster opp fakturaen, eller aktiverer fra ERP-et", "Lead og kunde opprettes i Salesforce automatisk"],
+    rolesNext: "Ingen – automatisk",
+    how: "Selvbetjent",
+  },
+  {
+    n: 2,
+    name: "Kartlegging og vurdering",
+    today: ["Kartlegge ERP, volum, tekniske krav, tidslinje og ansvar", "Beslutning: egnet for standard integrasjon?", "Nei → tilpasset løsning / prosjekt"],
+    rolesToday: "Salg + Teknisk team",
+    next: ["Tre spørsmål i flyten: ERP, volum, spesielle behov", "Standard → fortsetter selv", "Ikke standard → rådgiver får oppgave, men kunden kan sende første sak med en gang"],
+    rolesNext: "Salg / Partnerskap – kun ved avvik",
+    how: "Regel + unntak",
+  },
+  {
+    n: 3,
+    name: "Tilbud og avtale",
+    today: ["Utarbeide tilbud (standard SMB-pakke, tillegg, tidsplan)", "Kunden aksepterer og signerer", "Sak opprettes og overleveres til teknisk team"],
+    rolesToday: "Salg",
+    next: ["Intrum Optimal signeres med BankID i flyten", "Signaturrett fra Brønnøysund, KYC/AML automatisk", "Ingen overlevering – provisjonering starter ved signering"],
+    rolesNext: "Ingen – automatisk",
+    how: "BankID",
+  },
+  {
+    n: 4,
+    name: "Implementering av integrasjon",
+    today: ["Kick-off, tilgang og rettigheter, datakartlegging", "Oppsett av API/connector og mapping i kundens ERP", "Intern kvalitetssikring og testmiljø"],
+    rolesToday: "Teknisk team + kunde",
+    next: ["Gjøres én gang per ERP-partner, ikke per kunde", "Kunden aktiverer med samtykke via lenke fra ERP-et", "Kunde og portaltilgang opprettes automatisk (Pink via MuleSoft)"],
+    rolesNext: "Teknisk team – per partner",
+    how: "Standard-API",
+  },
+  {
+    n: 5,
+    name: "Testing og aktivering",
+    today: ["Kundetest med test-saker, verifisere status", "Beslutning: test godkjent? Nei → feilsøking", "Aktivere i produksjon, opplæring, første reelle sak"],
+    rolesToday: "Teknisk team + kunde",
+    next: ["Første sak sendes i onboardingen – før integrasjon", "Første sak via ERP verifiserer integrasjonen automatisk", "Kravkontroll på hver sak i stedet for test-saker"],
+    rolesNext: "Ingen – automatisk",
+    how: "Minutter",
+  },
+  {
+    n: 6,
+    name: "Drift og oppfølging",
+    today: ["Overvåke dataflyt og status", "Kundesupport ved behov", "Proaktiv oppfølging, utvikle videre bruk"],
+    rolesToday: "Kundesupport",
+    next: ["Oppfølgingsliste: frafall, rådgiver-kunder, ERP uten dataflyt, saker til kontroll", "Status tilbake til ERP, saksgang og meldinger i portalen"],
+    rolesNext: "Kundesupport – målrettet",
+    how: "Signalstyrt",
+  },
+];
+
+const criteria = [
+  { c: "Enkel og effektiv prosess for SMB", how: "Faktura først, BankID, én flyt", kpi: "Konvertering besøk → sak" },
+  { c: "Standardisert integrasjon for vanlige ERP-systemer", how: "Ett partner-API, aktivering via lenke", kpi: "Andel nye kunder med ERP innen 30 dager" },
+  { c: "Tett samarbeid og tydelig ansvarsfordeling", how: "ERP beslutter og sender, portalen følger opp; roller bare ved avvik", kpi: "Manuelle berøringer per ny kunde" },
+  { c: "Kunden sender første reelle sak raskt", how: "Første sak i onboardingen, varsel samme dag", kpi: "Median tid registrering → første sak" },
+  { c: "Stabil drift og god oppfølging over tid", how: "Statussynk, verifisert integrasjon, oppfølgingsliste", kpi: "Integrasjoner uten dataflyt, henvendelser om innlogging" },
 ];
 
 const todayJourney = [
@@ -44,7 +108,7 @@ export default function Page() {
       <div className="mt-8 grid sm:grid-cols-3 gap-4">
         {[
           { k: "Manuelle steg", a: "7+", b: "0" },
-          { k: "Team involvert", a: "4", b: "0 (unntak: manuell kontroll)" },
+          { k: "Roller involvert per ny kunde", a: "4", b: "0 – kun ved avvik" },
           { k: "Tid til første sak", a: "Dager–uker", b: "Minutter" },
         ].map((s) => (
           <div key={s.k} className="rounded-2xl bg-white ring-1 ring-black/5 p-5">
@@ -94,30 +158,63 @@ export default function Page() {
         </div>
       </section>
 
-      <div className="mt-8 overflow-x-auto rounded-2xl bg-white ring-1 ring-black/5">
-        <table className="w-full text-sm min-w-[720px]">
-          <thead className="text-left bg-brand-50">
-            <tr>
-              <th className="p-4 font-semibold">I dag</th>
-              <th className="p-4 font-semibold">Hvem</th>
-              <th className="p-4 font-semibold">Ny flyt</th>
-              <th className="p-4 font-semibold">Hvordan</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-black/5">
-            {rows.map((r) => (
-              <tr key={r.today} className="align-top">
-                <td className="p-4 text-ink-soft">{r.today}</td>
-                <td className="p-4 text-ink-soft whitespace-nowrap">{r.who}</td>
-                <td className="p-4">{r.next}</td>
-                <td className="p-4">
-                  <span className="rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-medium whitespace-nowrap">{r.how}</span>
-                </td>
+      <section className="mt-10">
+        <h2 className="text-xl font-semibold">Prosesskartet, fase for fase</h2>
+        <p className="text-sm text-ink-soft mt-1">Dagens seks faser fra Intrums prosesskart, og hva som skjer med hver av dem i ny flyt.</p>
+        <div className="mt-4 space-y-3">
+          {phases.map((p) => (
+            <div key={p.n} className="rounded-2xl bg-white ring-1 ring-black/5 p-5 grid md:grid-cols-[200px_1fr_1fr] gap-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="size-7 rounded-full bg-brand-100 text-brand-700 grid place-items-center text-xs font-bold">{p.n}</span>
+                  <span className="font-semibold">{p.name}</span>
+                </div>
+                <span className="mt-3 inline-block rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 text-xs font-medium">{p.how}</span>
+              </div>
+              <div className="text-sm">
+                <div className="text-xs font-semibold uppercase tracking-wide text-ink-soft">I dag · {p.rolesToday}</div>
+                <ul className="mt-2 space-y-1 text-ink-soft">
+                  {p.today.map((t) => (
+                    <li key={t}>• {t}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="text-sm">
+                <div className="text-xs font-semibold uppercase tracking-wide text-brand-700">Ny flyt · {p.rolesNext}</div>
+                <ul className="mt-2 space-y-1">
+                  {p.next.map((t) => (
+                    <li key={t}>• {t}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 overflow-hidden">
+        <h2 className="font-semibold text-lg p-6 pb-3">Suksesskriteriene fra prosesskartet</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
+            <thead className="text-left bg-canvas text-ink-soft">
+              <tr>
+                <th className="px-6 py-2 font-medium">Suksesskriterium</th>
+                <th className="py-2 font-medium">Hvordan ny flyt oppfyller det</th>
+                <th className="px-6 py-2 font-medium">Måles med</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-black/5">
+              {criteria.map((c) => (
+                <tr key={c.c} className="align-top">
+                  <td className="px-6 py-3 font-medium">{c.c}</td>
+                  <td className="py-3">{c.how}</td>
+                  <td className="px-6 py-3 text-ink-soft">{c.kpi}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
       <div className="mt-10 grid md:grid-cols-2 gap-5">
         <section className="rounded-2xl bg-white ring-1 ring-black/5 p-6">
           <h2 className="font-semibold text-lg">Ansvarsdeling</h2>
