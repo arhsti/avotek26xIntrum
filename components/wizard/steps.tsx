@@ -1,0 +1,384 @@
+"use client";
+import { useEffect, useState } from "react";
+import type { DebtCaseRow, OnboardingRow, StepKey } from "@/lib/types";
+import { cleanDigits, formatAccountNumber, formatOrgNr, isEmail, isValidAccountNumber, isValidOrgNr } from "@/lib/validation";
+import { Badge, Button, Card, Check, ErrorBox, Input, api, cx } from "../ui";
+import { BankIdModal } from "./BankIdModal";
+
+export type StepProps = {
+  o: OnboardingRow;
+  draftCase: DebtCaseRow | null;
+  update: (o: OnboardingRow) => void;
+  setDraftCase: (c: DebtCaseRow | null) => void;
+  go: (s: StepKey) => void;
+};
+
+export function StepHeader({ title, lead }: { title: string; lead?: string }) {
+  return (
+    <div className="mb-6">
+      <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
+      {lead && <p className="mt-2 text-ink-soft">{lead}</p>}
+    </div>
+  );
+}
+
+function CheckRow({ ok, warn, title, detail }: { ok?: boolean; warn?: boolean; title: string; detail?: string }) {
+  return (
+    <div className="flex gap-3 py-2.5">
+      <span
+        className={cx(
+          "mt-0.5 size-6 shrink-0 rounded-full grid place-items-center",
+          warn ? "bg-amber-100 text-amber-700" : ok ? "bg-emerald-100 text-emerald-700" : "bg-black/5 text-ink-soft",
+        )}
+      >
+        {warn ? <span className="font-bold text-sm">!</span> : <Check className="size-4" />}
+      </span>
+      <div>
+        <div className="font-medium">{title}</div>
+        {detail && <div className="text-sm text-ink-soft">{detail}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ---------- 1. Bedrift ----------
+
+const DEMO_COMPANIES = [
+  { orgNr: "923456783", label: "Fjellheim Rørlegger AS", tag: "Standard" },
+  { orgNr: "987654325", label: "Bølgen Kafé AS", tag: "Må medsigneres" },
+  { orgNr: "812345672", label: "Nordlys Elektro", tag: "ENK" },
+  { orgNr: "934567897", label: "Gammel Handel AS", tag: "Konkurs" },
+];
+
+export function CompanyStep({ o, update, go }: StepProps) {
+  const [orgNr, setOrgNr] = useState(o.orgNr ? formatOrgNr(o.orgNr) : "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(Boolean(o.company && o.status !== "blocked"));
+  const digits = cleanDigits(orgNr);
+
+  async function lookup(value = digits) {
+    setError(null);
+    setConfirmed(false);
+    if (!isValidOrgNr(value)) return setError("Organisasjonsnummeret er ikke gyldig. Det skal være 9 siffer.");
+    setLoading(true);
+    try {
+      update(await api<OnboardingRow>(`/api/onboarding/${o.id}/company`, { orgNr: value }));
+      setConfirmed(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const c = confirmed && o.company?.orgNr === digits ? o.company : null;
+
+  return (
+    <div>
+      <StepHeader title="Hvilken bedrift gjelder det?" lead="Skriv inn organisasjonsnummeret, så henter vi resten fra Brønnøysundregistrene." />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          lookup();
+        }}
+        className="flex flex-col sm:flex-row gap-3 sm:items-end"
+      >
+        <Input
+          label="Organisasjonsnummer"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="123 456 789"
+          value={orgNr}
+          onChange={(e) => setOrgNr(e.target.value)}
+          className="flex-1"
+          autoFocus
+        />
+        <Button type="submit" loading={loading} className="sm:h-[50px]">
+          Hent bedrift
+        </Button>
+      </form>
+
+      <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <span className="text-xs text-ink-soft">Testbedrifter:</span>
+        {DEMO_COMPANIES.map((d) => (
+          <button
+            key={d.orgNr}
+            type="button"
+            onClick={() => {
+              setOrgNr(formatOrgNr(d.orgNr));
+              lookup(d.orgNr);
+            }}
+            className="text-xs rounded-full bg-white ring-1 ring-black/10 px-3 py-1 hover:ring-brand-400"
+          >
+            {d.label} <span className="text-ink-soft">· {d.tag}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 space-y-4">
+        <ErrorBox message={error} />
+        {c && (
+          <Card className="p-5 animate-fade-up">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-lg font-semibold">{c.name}</div>
+                <div className="text-sm text-ink-soft">
+                  Org.nr {formatOrgNr(c.orgNr)} · {c.orgForm}
+                </div>
+              </div>
+              <Badge tone="green">{c.status}</Badge>
+            </div>
+            <dl className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              <div>
+                <dt className="text-ink-soft">Adresse</dt>
+                <dd>
+                  {c.address.street}, {c.address.postalCode} {c.address.city}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-ink-soft">Bransje</dt>
+                <dd>{c.naceText}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-soft">Roller</dt>
+                <dd>{c.roles.map((r) => `${r.name} (${r.type.toLowerCase()})`).join(", ")}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-soft">Ansatte</dt>
+                <dd>{c.employees}</dd>
+              </div>
+            </dl>
+            <div className="mt-5 flex flex-col sm:flex-row gap-3">
+              <Button onClick={() => go("identity")}>Ja, dette er min bedrift</Button>
+              <Button variant="ghost" onClick={() => setConfirmed(false)}>
+                Nei, endre
+              </Button>
+            </div>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- 2. Identifisering ----------
+
+export function IdentityStep({ o, update, go }: StepProps) {
+  const [open, setOpen] = useState(false);
+  const done = Boolean(o.signer && o.kyc);
+
+  return (
+    <div>
+      <StepHeader
+        title="Bekreft hvem du er"
+        lead={`Vi bruker BankID for å bekrefte identiteten din og sjekke at du kan inngå avtale på vegne av ${o.company?.name}.`}
+      />
+      {!done ? (
+        <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
+          Logg inn med BankID
+        </Button>
+      ) : (
+        <Card className="p-5 animate-fade-up">
+          <div className="divide-y divide-black/5">
+            <CheckRow ok title={`Identitet bekreftet: ${o.signer!.name}`} detail={`Fødselsnummer ${o.signer!.nationalIdMasked}`} />
+            {o.signatureRight?.ok ? (
+              <CheckRow ok title="Signaturrett bekreftet" detail={`${o.signatureRight.role} i ${o.company?.name}`} />
+            ) : (
+              <CheckRow
+                warn
+                title="Du har ikke signaturrett alene"
+                detail={`Du kan fortsette registreringen. Avtalen sendes til ${o.signatureRight?.signatories.join(" eller ")} for signering med BankID.`}
+              />
+            )}
+            <CheckRow
+              ok
+              title="Kundekontroll (hvitvaskingsloven) godkjent"
+              detail={o.kyc!.checks.map((c) => `${c.name}: ${c.result}`).join(" · ")}
+            />
+          </div>
+          <div className="mt-5 flex gap-3">
+            <Button onClick={() => go("details")}>Fortsett</Button>
+            <Button variant="ghost" onClick={() => setOpen(true)}>
+              Bytt bruker
+            </Button>
+          </div>
+        </Card>
+      )}
+      {open && (
+        <BankIdModal
+          mode="login"
+          onClose={() => setOpen(false)}
+          onConfirm={async (personId) => {
+            update(await api<OnboardingRow>(`/api/onboarding/${o.id}/identify`, { personId }));
+            setOpen(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------- 3. Kontakt og utbetaling ----------
+
+export function DetailsStep({ o, update, go }: StepProps) {
+  const [form, setForm] = useState({
+    name: o.contact?.name ?? o.signer?.name ?? "",
+    email: o.contact?.email ?? "",
+    phone: o.contact?.phone ?? "",
+    accountNumber: o.payout ? formatAccountNumber(o.payout.accountNumber) : "",
+  });
+  const [suggested, setSuggested] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    api<{ accounts: string[] }>(`/api/onboarding/${o.id}/accounts`).then((r) => setSuggested(r.accounts)).catch(() => {});
+  }, [o.id]);
+
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
+  const errors = {
+    email: form.email && !isEmail(form.email) ? "Sjekk e-postadressen" : undefined,
+    accountNumber:
+      cleanDigits(form.accountNumber).length === 11 && !isValidAccountNumber(form.accountNumber) ? "Kontonummeret er ikke gyldig" : undefined,
+  };
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setTouched(true);
+    setError(null);
+    setLoading(true);
+    try {
+      update(await api<OnboardingRow>(`/api/onboarding/${o.id}/details`, form));
+      go("agreement");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <StepHeader title="Kontaktinformasjon og utbetaling" lead="Hvem skal vi kontakte om sakene, og hvor skal pengene utbetales?" />
+      <div className="grid sm:grid-cols-2 gap-4">
+        <Input label="Kontaktperson" value={form.name} onChange={set("name")} autoComplete="name" className="sm:col-span-2" />
+        <Input label="E-post" type="email" value={form.email} onChange={set("email")} autoComplete="email" error={touched ? errors.email : undefined} hint="Brukes til innlogging i kundeportalen og varsler om saker" />
+        <Input label="Mobil" type="tel" value={form.phone} onChange={set("phone")} autoComplete="tel" placeholder="+47 900 00 000" />
+        <div className="sm:col-span-2">
+          <Input
+            label="Kontonummer for utbetaling"
+            inputMode="numeric"
+            placeholder="1234.56.78903"
+            value={form.accountNumber}
+            onChange={set("accountNumber")}
+            onBlur={() => setForm((f) => ({ ...f, accountNumber: formatAccountNumber(f.accountNumber) || f.accountNumber }))}
+            error={errors.accountNumber}
+          />
+          {suggested.length > 0 && cleanDigits(form.accountNumber) !== suggested[0] && (
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, accountNumber: formatAccountNumber(suggested[0]) })}
+              className="mt-2 text-sm text-brand-700 hover:underline text-left"
+            >
+              Bruk {formatAccountNumber(suggested[0])} – registrert på {o.company?.name} i Kontoregisteret
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="mt-6 space-y-4">
+        <ErrorBox message={error} />
+        <Button type="submit" loading={loading}>
+          Fortsett
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------- 4. Avtale ----------
+
+export function AgreementStep({ o, update, go }: StepProps) {
+  const [accepted, setAccepted] = useState(Boolean(o.agreement));
+  const [open, setOpen] = useState(false);
+  const coSigner = o.signatureRight?.ok ? null : o.signatureRight?.signatories[0];
+
+  if (o.agreement) {
+    return (
+      <div>
+        <StepHeader title="Avtalen er signert" />
+        <Card className="p-5">
+          <CheckRow
+            ok
+            title={`${o.agreement.package} signert av ${o.agreement.signedBy}`}
+            detail={`${new Date(o.agreement.signedAt).toLocaleString("nb-NO")} · BankID-referanse ${o.agreement.reference}`}
+          />
+          <Button className="mt-4" onClick={() => go(o.channel ? "submit" : "case")}>
+            {o.channel ? "Fortsett" : "Fortsett til første sak"}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <StepHeader title="Avtale" lead="Intrum Optimal er standardavtalen for små og mellomstore bedrifter – samme tjeneste for alle, uten tilbudsrunde." />
+      <Card className="p-5">
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-lg">Intrum Optimal</div>
+          <Badge>Fiktive vilkår</Badge>
+        </div>
+        <ul className="mt-4 grid sm:grid-cols-2 gap-2 text-sm">
+          {[
+            "Inkassovarsel og betalingsoppfordring",
+            "Oppfølging av skyldner på telefon, SMS og e-post",
+            "Avtale om nedbetaling på dine vegne",
+            "Rettslig inkasso ved behov",
+            "Kundeportal med status på alle saker",
+            "Utbetaling til konto når skyldner betaler",
+          ].map((t) => (
+            <li key={t} className="flex gap-2">
+              <Check className="size-4 mt-0.5 text-brand-600 shrink-0" />
+              {t}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-5 rounded-xl bg-brand-50 p-4 text-sm">
+          <div className="font-medium">Pris</div>
+          <p className="text-ink-soft mt-1">
+            Ingen etablerings- eller månedskostnad. Inkassosalær kreves inn fra skyldner etter inkassoforskriften. Fiktiv prismodell for prototypen.
+          </p>
+        </div>
+        <label className="mt-5 flex gap-3 text-sm items-start">
+          <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 size-5 accent-brand-600" />
+          <span>
+            Jeg har lest og godtar <span className="underline">avtalevilkårene</span> og <span className="underline">personvernerklæringen</span>.
+          </span>
+        </label>
+        {coSigner && (
+          <div className="mt-4 rounded-xl bg-amber-50 ring-1 ring-amber-200 p-4 text-sm">
+            Du har ikke signaturrett alene. Når du trykker «Send til signering», får {coSigner} en lenke på e-post og signerer med BankID.
+          </div>
+        )}
+        <Button className="mt-5 w-full sm:w-auto" disabled={!accepted} onClick={() => setOpen(true)}>
+          {coSigner ? `Send til signering hos ${coSigner}` : "Signer med BankID"}
+        </Button>
+      </Card>
+      {open && (
+        <BankIdModal
+          mode="sign"
+          signerName={coSigner ?? o.signer?.name}
+          documentTitle="Intrum Optimal – avtale"
+          onClose={() => setOpen(false)}
+          onConfirm={async () => {
+            update(await api<OnboardingRow>(`/api/onboarding/${o.id}/sign`));
+            setOpen(false);
+            go(o.channel ? "submit" : "case");
+          }}
+        />
+      )}
+    </div>
+  );
+}
