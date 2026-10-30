@@ -17,7 +17,7 @@ import { cleanDigits, isEmail } from "./validation";
 export const PARTNERS: Partner[] = [
   { id: "demo-erp", name: "Demo-ERP", apiKey: "demo_erp_key" },
   { id: "tripletex", name: "Tripletex", apiKey: "demo_tripletex_key" },
-  { id: "fiken", name: "Fiken", apiKey: "demo_fiken_key" },
+  { id: "fiken", name: "Fiken", apiKey: "demo_fiken_key" }, // ikke integrert i dag – mulig ny partner
   { id: "poweroffice", name: "PowerOffice Go", apiKey: "demo_poweroffice_key" },
 ];
 
@@ -80,6 +80,9 @@ export type PartnerCaseInput = {
   debtor: DebtCase["debtor"];
   invoice: DebtCase["invoice"];
   reminderAlreadySent?: boolean;
+  /** Fra ERP-ets purrehistorikk: når varselet ble sendt og fristen i det */
+  notice?: { sentDate: string; deadline: string };
+  payments?: DebtCase["payments"];
   documentUrl?: string;
 };
 
@@ -116,7 +119,11 @@ export async function createPartnerCase(partner: Partner, input: PartnerCaseInpu
 
   const debtor = { ...input.debtor, orgNr: input.debtor.orgNr ? cleanDigits(input.debtor.orgNr) : undefined };
   const invoice = { ...input.invoice, amount: Number(input.invoice.amount) };
-  const claimCheck = await runClaimChecks(customer, { debtor, invoice, source: "erp", reminderAlreadySent: Boolean(input.reminderAlreadySent), erpVerified: true }, { onboardingId: customer.id });
+  const claimCheck = await runClaimChecks(
+    customer,
+    { debtor, invoice, source: "erp", reminderAlreadySent: Boolean(input.reminderAlreadySent), notice: input.notice, payments: input.payments, erpVerified: true },
+    { onboardingId: customer.id },
+  );
 
   const id = newId("case");
   const base: DebtCase = {
@@ -128,6 +135,8 @@ export async function createPartnerCase(partner: Partner, input: PartnerCaseInpu
     debtor,
     invoice,
     reminderAlreadySent: Boolean(input.reminderAlreadySent),
+    notice: input.notice,
+    payments: input.payments,
     claimCheck,
     status: "rejected",
   };

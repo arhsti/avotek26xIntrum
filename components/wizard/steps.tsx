@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DebtCaseRow, OnboardingRow, StepKey } from "@/lib/types";
-import { cleanDigits, formatAccountNumber, formatOrgNr, isEmail, isValidAccountNumber, isValidOrgNr } from "@/lib/validation";
-import { Badge, Button, Card, Check, ErrorBox, Input, api, cx } from "../ui";
+import { cleanDigits, formatAccountNumber, formatOrgNr, isEmail, isValidAccountNumber, isValidOrgNr, nok } from "@/lib/validation";
+import { Badge, Button, Card, Check, ErrorBox, Input, Spinner, api, cx } from "../ui";
 import { BankIdModal } from "./BankIdModal";
 
 export type StepProps = {
@@ -55,7 +55,29 @@ export function CompanyStep({ o, update, go }: StepProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(Boolean(o.company && o.status !== "blocked"));
+  const [mode, setMode] = useState<"invoice" | "orgnr">(o.company && !o.prefill ? "orgnr" : "invoice");
+  const [reading, setReading] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const digits = cleanDigits(orgNr);
+
+  // Faktura først: fakturaen gir både din bedrift (avsender) og kravet
+  async function readInvoice(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setReading(file.name);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api<OnboardingRow>(`/api/onboarding/${o.id}/invoice-first`, fd);
+      update(r);
+      setOrgNr(formatOrgNr(r.orgNr ?? ""));
+      setConfirmed(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setReading(null);
+    }
+  }
 
   async function lookup(value = digits) {
     setError(null);
@@ -73,10 +95,60 @@ export function CompanyStep({ o, update, go }: StepProps) {
   }
 
   const c = confirmed && o.company?.orgNr === digits ? o.company : null;
+  const p = c ? o.prefill : undefined;
 
   return (
     <div>
-      <StepHeader title="Hvilken bedrift gjelder det?" lead="Skriv inn organisasjonsnummeret, så henter vi resten fra Brønnøysundregistrene." />
+      <StepHeader
+        title={mode === "invoice" ? "Hvilken faktura er ikke betalt?" : "Hvilken bedrift gjelder det?"}
+        lead={
+          mode === "invoice"
+            ? "Last opp fakturaen. Vi finner bedriften din, kunden som skylder og beløpet – og fyller ut resten."
+            : "Skriv inn organisasjonsnummeret, så henter vi resten fra Brønnøysundregistrene."
+        }
+      />
+      <div className="inline-flex rounded-xl bg-black/5 p-1 mb-5 text-sm">
+        {(["invoice", "orgnr"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={cx("px-4 py-2 rounded-lg font-medium", mode === m ? "bg-white shadow-sm" : "text-ink-soft")}
+          >
+            {m === "invoice" ? "Start med fakturaen" : "Start med org.nr"}
+          </button>
+        ))}
+      </div>
+
+      {mode === "invoice" && !c && (
+        <div>
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              readInvoice(e.dataTransfer.files[0]);
+            }}
+            onClick={() => fileRef.current?.click()}
+            className="cursor-pointer rounded-2xl border-2 border-dashed border-brand-200 bg-white p-10 text-center hover:border-brand-400 hover:bg-brand-50 transition"
+          >
+            {reading ? (
+              <div className="flex flex-col items-center gap-3 text-ink-soft">
+                <Spinner className="size-8 text-brand-600" />
+                <div>Leser {reading} og slår opp i Brønnøysundregistrene …</div>
+              </div>
+            ) : (
+              <>
+                <div className="text-lg font-semibold">Dra fakturaen hit, eller klikk for å velge fil</div>
+                <div className="text-sm text-ink-soft mt-1">PDF, bilde eller EHF. Fakturaen lagres først når du har bekreftet med BankID.</div>
+              </>
+            )}
+            <input ref={fileRef} type="file" accept=".pdf,.xml,image/*" className="hidden" onChange={(e) => readInvoice(e.target.files?.[0])} />
+          </div>
+          <p className="mt-2 text-xs text-ink-soft">Demo: et org.nr i filnavnet (f.eks. «faktura-987654325.pdf») blir avsender. Ellers brukes Fjellheim Rørlegger AS.</p>
+        </div>
+      )}
+
+      {mode === "orgnr" && (
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -98,7 +170,9 @@ export function CompanyStep({ o, update, go }: StepProps) {
           Hent bedrift
         </Button>
       </form>
+      )}
 
+      {mode === "orgnr" && (
       <div className="mt-3 flex flex-wrap gap-2 items-center">
         <span className="text-xs text-ink-soft">Testbedrifter:</span>
         {DEMO_COMPANIES.map((d) => (
@@ -115,11 +189,29 @@ export function CompanyStep({ o, update, go }: StepProps) {
           </button>
         ))}
       </div>
+      )}
 
       <div className="mt-6 space-y-4">
         <ErrorBox message={error} />
+        {p && (
+          <Card className="p-5 animate-fade-up">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-ink-soft">Kravet</div>
+                <div className="text-lg font-semibold">
+                  {nok(p.invoice.amount)} fra {p.debtor.name}
+                </div>
+                <div className="text-sm text-ink-soft">
+                  Faktura {p.invoice.number} · forfalt {new Date(p.invoice.dueDate).toLocaleDateString("nb-NO")} · lest fra {p.fileName}
+                </div>
+              </div>
+              <Badge tone="green">{Math.round(p.confidence * 100)} % sikker</Badge>
+            </div>
+          </Card>
+        )}
         {c && (
           <Card className="p-5 animate-fade-up">
+            {p && <div className="text-xs uppercase tracking-wide text-ink-soft mb-1">Din bedrift – fra avsender på fakturaen</div>}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-lg font-semibold">{c.name}</div>
@@ -226,7 +318,11 @@ export function DetailsStep({ o, update, go }: StepProps) {
     name: o.contact?.name ?? o.signer?.name ?? "",
     email: o.contact?.email ?? "",
     phone: o.contact?.phone ?? "",
-    accountNumber: o.payout ? formatAccountNumber(o.payout.accountNumber) : "",
+    accountNumber: o.payout
+      ? formatAccountNumber(o.payout.accountNumber)
+      : o.prefill?.accountNumber
+        ? formatAccountNumber(o.prefill.accountNumber)
+        : "",
   });
   const [suggested, setSuggested] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -276,6 +372,9 @@ export function DetailsStep({ o, update, go }: StepProps) {
             onBlur={() => setForm((f) => ({ ...f, accountNumber: formatAccountNumber(f.accountNumber) || f.accountNumber }))}
             error={errors.accountNumber}
           />
+          {o.prefill?.accountNumber && cleanDigits(form.accountNumber) === o.prefill.accountNumber && (
+            <div className="mt-2 text-xs text-emerald-700">Hentet fra fakturaen – verifiseres mot Kontoregisteret</div>
+          )}
           {suggested.length > 0 && cleanDigits(form.accountNumber) !== suggested[0] && (
             <button
               type="button"

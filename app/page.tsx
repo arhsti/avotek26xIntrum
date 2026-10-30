@@ -1,10 +1,10 @@
 import Link from "next/link";
 
 const steps = [
-  { t: "Organisasjonsnummer", d: "Vi henter bedriften fra Brønnøysundregistrene" },
+  { t: "Last opp fakturaen", d: "Vi finner din bedrift, skyldner og beløp" },
   { t: "BankID", d: "Identitet, signaturrett og kundekontroll – automatisk" },
-  { t: "Signer avtalen", d: "Én standardavtale, signert med BankID" },
-  { t: "Send første sak", d: "Last opp fakturaen – vi leser den for deg" },
+  { t: "Signer Intrum Optimal", d: "Standardavtalen, signert med BankID" },
+  { t: "Kravet er hos Intrum", d: "Inkassovarsel sendes samme dag" },
 ];
 
 export default function Home() {
@@ -14,13 +14,14 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 grid lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
           <div>
             <div className="text-sm font-medium text-brand-100">For bedrifter</div>
-            <h1 className="mt-3 text-4xl sm:text-5xl font-bold tracking-tight leading-tight">Få betalt. Send din første inkassosak på under fem minutter.</h1>
+            <h1 className="mt-3 text-4xl sm:text-5xl font-bold tracking-tight leading-tight">Har en kunde ikke betalt? Last opp fakturaen – vi tar det derfra.</h1>
             <p className="mt-5 text-lg text-brand-50 max-w-xl">
-              Bli kunde, signer avtalen og send inn saken i én og samme flyt. Ingen venting på aktivering, ingen skjemaer på e-post.
+              Vi leser fakturaen, finner bedriften din og den som skylder, og du blir kunde med BankID underveis. Kravet er hos oss samme dag – ingen venting på
+              aktivering eller kundenummer.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Link href="/onboarding" className="rounded-xl bg-white text-brand-700 px-6 py-3.5 font-semibold text-center hover:bg-brand-50">
-                Send en sak til inkasso
+                Last opp fakturaen
               </Link>
               <Link href="/erp-demo" className="rounded-xl ring-1 ring-white/50 px-6 py-3.5 font-semibold text-center hover:bg-white/10">
                 Bruker du et regnskapssystem?
@@ -45,7 +46,7 @@ export default function Home() {
         {[
           { t: "Selvbetjent fra start til første sak", d: "Det som i dag krever Digital Sales, manuell registrering i Pink og portalaktivering, skjer automatisk når kunden signerer." },
           { t: "Kontroll på kunde og krav", d: "BankID, signaturrett, KYC/AML, Kontoregisteret og kravkontroll (duplikat, foreldelse, skyldner, dokumentasjon) på hver sak." },
-          { t: "Skalerer via ERP-partnere", d: "Ett standard partner-API. Tripletex, Fiken og andre sender kunden en lenke og saker via API – ikke et integrasjonsprosjekt per kunde." },
+          { t: "Skalerer via ERP-partnere", d: "Ett standard partner-API. Tripletex, PowerOffice og andre sender kunden en lenke og saker via API – ikke et integrasjonsprosjekt per kunde." },
         ].map((c) => (
           <div key={c.t} className="rounded-2xl bg-white p-6 ring-1 ring-black/5">
             <h2 className="font-semibold text-lg">{c.t}</h2>
@@ -69,6 +70,7 @@ export default function Home() {
               { href: "/sammenligning", t: "I dag vs. ny flyt", d: "Hvilke manuelle steg som forsvinner" },
               { href: "/portal", t: "Kundeportal", d: "Saksgang og meldinger etter innsending" },
               { href: "/arkitektur", t: "Arkitektur", d: "MuleSoft, Azure, .NET og veien til Pink" },
+              { href: "/gevinster", t: "Hva det gir Intrum", d: "Gevinster, KPI-er og hva som gjør at kundene tar det i bruk" },
             ].map((l) => (
               <Link key={l.href} href={l.href} className="rounded-xl bg-white/10 p-4 hover:bg-white/15">
                 <div className="font-semibold">{l.t} →</div>

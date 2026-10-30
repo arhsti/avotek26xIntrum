@@ -13,10 +13,14 @@ type CheckResult = ClaimCheck;
 
 const DAY = 86400000;
 const AUTO_LIMIT = 250_000;
+const PROVISION_DAYS = 60;
 
 export async function runClaimChecks(
   creditor: Pick<Onboarding, "orgNr" | "kyc" | "company">,
-  c: Pick<DebtCase, "debtor" | "invoice" | "source" | "reminderAlreadySent"> & { documentAttached?: boolean; erpVerified?: boolean },
+  c: Pick<DebtCase, "debtor" | "invoice" | "source" | "reminderAlreadySent" | "payments" | "notice" | "disputed" | "attachments"> & {
+    documentAttached?: boolean;
+    erpVerified?: boolean;
+  },
   opts: { onboardingId?: string; excludeCaseId?: string } = {},
 ): Promise<ClaimDecision> {
   const checks: CheckResult[] = [];
@@ -59,9 +63,15 @@ export async function runClaimChecks(
   else if (age > 2.5 * 365) add("due", "Kravet er ikke foreldet", "warn", `Forfalt for ${age} dager siden – nær foreldelse`);
   else add("due", "Kravet er forfalt og ikke foreldet", "ok", `Forfalt for ${age} dager siden`);
 
-  // Beløp
-  const amount = c.invoice.amount;
-  if (!(amount > 0)) add("amount", "Gyldig beløp", "fail", "Beløpet må være større enn 0");
+  // Provisjon: Intrum Optimal tar 8 % når saken registreres 60+ dager etter forfall
+  if (age >= PROVISION_DAYS) add("timing", "Registrert etter 60 dager", "info", `${age} dager etter forfall – 8 % provisjon etter Intrum Optimal`);
+  else if (age > 0) add("timing", "Sendt i tide", "info", `0 kr i provisjon – ${PROVISION_DAYS - age} dager før 60-dagersgrensen`);
+
+  // Beløp: utestående = fakturabeløp minus innbetalinger og kreditnotaer
+  const paid = (c.payments ?? []).reduce((sum, p) => sum + Math.abs(Number(p.amount) || 0), 0);
+  const amount = c.invoice.amount - paid;
+  if (c.invoice.amount > 0 && amount <= 0) add("amount", "Noe gjenstår å kreve inn", "fail", "Fakturaen er betalt eller kreditert i sin helhet");
+  else if (!(amount > 0)) add("amount", "Gyldig beløp", "fail", "Beløpet må være større enn 0");
   else if (amount > AUTO_LIMIT) add("amount", "Beløp innenfor automatisk grense", "warn", `Over ${AUTO_LIMIT.toLocaleString("nb-NO")} kr – kontrolleres manuelt`);
   else add("amount", "Beløp innenfor automatisk grense", "ok", `${amount.toLocaleString("nb-NO")} kr`);
 
@@ -81,9 +91,28 @@ export async function runClaimChecks(
     dup ? `Faktura ${c.invoice.number} er allerede registrert (sak ${dup.caseNumber})` : `Ingen tidligere sak med fakturanr. ${c.invoice.number}`,
   );
 
+  // Bestridt krav går ikke i ordinær inkasso
+  if (c.disputed) add("disputed", "Kravet er ikke bestridt", "warn", "Skyldner har protestert – en saksbehandler vurderer saken før den går videre");
+  else add("disputed", "Kravet er ikke bestridt", "ok", "Bekreftet av kreditor");
+
+  // Inkassovarsel (inkassoloven § 9): sendt av kunden, eller Intrum sender (purreservice)
+  if (c.reminderAlreadySent) {
+    const n = c.notice;
+    if (!n?.sentDate || !n?.deadline) {
+      add("notice", "Inkassovarsel dokumentert", "warn", "Mangler dato og frist for varselet – kontrolleres før betalingsoppfordring");
+    } else {
+      const days = Math.round((new Date(n.deadline).getTime() - new Date(n.sentDate).getTime()) / DAY);
+      if (days < 14) add("notice", "Varselet har minst 14 dagers frist", "warn", `Fristen var ${days} dager – Intrum sender nytt varsel`);
+      else if (new Date(n.deadline).getTime() >= Date.now()) add("notice", "Fristen i varselet er ute", "warn", `Fristen går ut ${new Date(n.deadline).toLocaleDateString("nb-NO")}`);
+      else add("notice", "Inkassovarsel dokumentert, frist utløpt", "ok", `Sendt ${new Date(n.sentDate).toLocaleDateString("nb-NO")}${n.fileName ? `, kopi vedlagt` : ""} – betalingsoppfordring kan sendes i dag`);
+    }
+  } else {
+    add("notice", "Inkassovarsel", "info", "Intrum sender inkassovarsel i dag (purreservice, 0 kr)");
+  }
+
   // Dokumentasjon av kravet
   if (c.erpVerified) add("evidence", "Faktura verifisert i regnskapssystem", "ok", "Fakturaen er hentet direkte fra kundens ERP");
-  else if (c.source === "ocr" || c.documentAttached) add("evidence", "Faktura vedlagt", "ok", "Fakturadokument lest og matcher oppgitte opplysninger");
+  else if (c.source === "ocr" || c.documentAttached || (c.attachments?.length ?? 0) > 0) add("evidence", "Faktura vedlagt", "ok", "Fakturadokument lest og matcher oppgitte opplysninger");
   else add("evidence", "Dokumentasjon av kravet", "warn", "Ingen faktura vedlagt – vi kan be om dokumentasjon ved innsigelse");
 
   // Manglende vedlegg alene stopper ikke saken; alle andre avvik går til saksbehandler

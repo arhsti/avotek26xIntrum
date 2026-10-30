@@ -25,9 +25,10 @@ export function ClaimCheckList({ check }: { check: ClaimDecision }) {
                 c.status === "ok" && "bg-emerald-100 text-emerald-700",
                 c.status === "warn" && "bg-amber-100 text-amber-700",
                 c.status === "fail" && "bg-red-100 text-red-700",
+                c.status === "info" && "bg-brand-100 text-brand-700",
               )}
             >
-              {c.status === "ok" ? <Check className="size-3.5" /> : c.status === "warn" ? "!" : "×"}
+              {c.status === "ok" ? <Check className="size-3.5" /> : c.status === "warn" ? "!" : c.status === "info" ? "i" : "×"}
             </span>
             <span>
               <span className="font-medium">{c.name}</span>
@@ -125,7 +126,7 @@ export function SubmitStep({ o, draftCase, update, go }: StepProps) {
             </Summary>
             {draftCase && !partner && (
               <Summary title="Første sak" onEdit={() => go("case")}>
-                {nok(draftCase.invoice.amount)} fra {draftCase.debtor.name} · faktura {draftCase.invoice.number}, forfalt{" "}
+                {nok(draftCase.outstanding ?? draftCase.invoice.amount)} fra {draftCase.debtor.name} · faktura {draftCase.invoice.number}, forfalt{" "}
                 {new Date(draftCase.invoice.dueDate).toLocaleDateString("nb-NO")}
                 <span className="block text-ink-soft">{draftCase.nextAction}</span>
               </Summary>

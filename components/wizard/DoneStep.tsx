@@ -5,7 +5,44 @@ import { nok } from "@/lib/validation";
 import { Badge, Button, Card, Check, ErrorBox, api, cx } from "../ui";
 import type { StepProps } from "./steps";
 
-const ERP = ["Tripletex", "Fiken", "PowerOffice Go", "Visma eAccounting", "Xledger", "24SevenOffice"];
+// Integrasjoner Intrum har i dag, pluss Fiken som mulig ny partner
+const ERP = ["Tripletex", "PowerOffice Go", "Visma", "Xledger", "24SevenOffice", "Fiken"];
+const NEW_PARTNERS = ["Fiken"];
+
+const dateIn = (days: number) => new Date(Date.now() + days * 86400000).toLocaleDateString("nb-NO", { day: "numeric", month: "short" });
+
+function Timeline({ c }: { c: DebtCaseRow }) {
+  const steps =
+    c.status === "manual_review"
+      ? [
+          { when: "I dag", what: "Saksbehandler vurderer saken", note: "Innen 1 virkedag" },
+          { when: "Deretter", what: "Første brev til skyldner", note: "Du får beskjed i portalen" },
+          { when: "Når skyldner betaler", what: "Utbetaling til deg", note: "" },
+        ]
+      : c.nextAction?.startsWith("Betalingsoppfordring")
+        ? [
+            { when: "I dag", what: "Betalingsoppfordring sendes", note: "Varselet ditt er dokumentert – 14 dager spart" },
+            { when: "Deretter", what: "Oppfølging av skyldner", note: "SMS, telefon, avdragsavtale – eller rettslig" },
+            { when: "Når skyldner betaler", what: "Utbetaling til deg", note: "" },
+          ]
+        : [
+            { when: "I dag", what: "Inkassovarsel sendes", note: "Skyldner får 14 dagers frist" },
+            { when: `Dag 15 · ${dateIn(15)}`, what: "Betalingsoppfordring", note: "Hvis ikke betalt" },
+            { when: "Deretter", what: "Oppfølging av skyldner", note: "SMS, telefon, avdragsavtale – eller rettslig" },
+            { when: "Når skyldner betaler", what: "Utbetaling til deg", note: "" },
+          ];
+  return (
+    <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      {steps.map((s, i) => (
+        <li key={s.what} className={cx("rounded-xl p-3", i === 0 ? "bg-brand-600 text-white" : "bg-brand-50")}>
+          <div className={cx("text-[11px] font-semibold uppercase tracking-wide", i === 0 ? "text-brand-100" : "text-brand-700")}>{s.when}</div>
+          <div className="font-medium mt-0.5">{s.what}</div>
+          {s.note && <div className={cx("text-xs mt-0.5", i === 0 ? "text-brand-100" : "text-ink-soft")}>{s.note}</div>}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function duration(ms: number) {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -64,13 +101,14 @@ export function DoneStep({ o, update, onRestart }: StepProps & { onRestart: () =
           </div>
         )}
         {c && (
-          <div className="sm:col-span-2 rounded-xl bg-brand-50 p-4">
+          <div className="sm:col-span-2 space-y-3">
             <div className="font-medium">
-              {nok(c.invoice.amount)} fra {c.debtor.name}
+              {nok(c.outstanding ?? c.invoice.amount)} fra {c.debtor.name}
             </div>
-            <div className="text-ink-soft">
-              {c.status === "manual_review" ? "Kontrolleres av saksbehandler innen 1 virkedag." : c.nextAction}
-            </div>
+            <Timeline c={c} />
+            {c.claimCheck?.checks.find((x) => x.key === "timing") && (
+              <div className="text-ink-soft">{c.claimCheck.checks.find((x) => x.key === "timing")!.detail}</div>
+            )}
           </div>
         )}
         <div className="sm:col-span-2">
@@ -129,6 +167,7 @@ export function DoneStep({ o, update, onRestart }: StepProps & { onRestart: () =
                   className={cx("rounded-xl ring-1 ring-black/10 px-3 py-3 text-sm font-medium hover:ring-brand-400 hover:bg-brand-50 disabled:opacity-50", erpLoading === s && "animate-pulse")}
                 >
                   {erpLoading === s ? "Kobler til …" : s}
+                  {NEW_PARTNERS.includes(s) && erpLoading !== s && <span className="block text-[11px] font-normal text-ink-soft">Ny partner</span>}
                 </button>
               ))}
             </div>

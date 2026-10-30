@@ -19,7 +19,7 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString()
 
 const INVOICES = [
   { id: "INV-10231", debtor: { type: "company", orgNr: "975312461", name: "Vestkyst Eiendom AS", address: "Strandkaien 20, 4005 Stavanger" }, amount: 18750, due: 40, reminder: false, note: "Normal sak" },
-  { id: "INV-10244", debtor: { type: "company", orgNr: "998877660", name: "Tindesport AS", address: "Fjellvegen 4, 2609 Lillehammer" }, amount: 6200, due: 32, reminder: true, note: "Inkassovarsel allerede sendt" },
+  { id: "INV-10244", debtor: { type: "company", orgNr: "998877660", name: "Tindesport AS", address: "Fjellvegen 4, 2609 Lillehammer" }, amount: 6200, due: 32, reminder: true, note: "Inkassovarsel sendt – fra purrehistorikken" },
   { id: "INV-10198", debtor: { type: "company", orgNr: "934567897", name: "Gammel Handel AS", address: "Kirkegata 1, 0153 Oslo" }, amount: 32400, due: 120, reminder: false, note: "Skyldner under konkurs" },
   { id: "INV-10087", debtor: { type: "company", orgNr: "987654325", name: "Bølgen Kafé AS", address: "Bryggen 3, 5003 Bergen" }, amount: 312000, due: 60, reminder: false, note: "Stort beløp" },
   { id: "INV-8120", debtor: { type: "person", name: "Hans Hansen", address: "Lia 7, 7020 Trondheim" }, amount: 4500, due: 1180, reminder: false, note: "Over 3 år gammel" },
@@ -113,6 +113,8 @@ export function ErpDemo() {
           debtor: inv.debtor,
           invoice: { number: inv.id, issueDate: daysAgo(inv.due + 14), dueDate: daysAgo(inv.due), amount: inv.amount },
           reminderAlreadySent: inv.reminder,
+          // Purrehistorikk fra ERP: varsel sendt 2 dager etter forfall med 14 dagers frist
+          notice: inv.reminder ? { sentDate: daysAgo(inv.due - 2), deadline: daysAgo(inv.due - 16) } : undefined,
         }),
       });
       const data = await res.json();

@@ -10,12 +10,13 @@ type Ctx = { params: Promise<{ id: string; action: string }> };
 export async function POST(req: Request, { params }: Ctx) {
   const { id, action } = await params;
   try {
-    if (action === "ocr") {
+    if (action === "ocr" || action === "invoice-first") {
       const form = await req.formData();
       const file = form.get("file");
       if (!(file instanceof File)) throw new svc.UserError("Last opp en fil");
       if (file.size > 10 * 1024 * 1024) throw new svc.UserError("Filen er for stor (maks 10 MB)");
-      return NextResponse.json(await svc.ocr(id, file.name, file.size));
+      const run = action === "ocr" ? svc.ocr : svc.invoiceFirst;
+      return NextResponse.json(await run(id, file.name, file.size));
     }
 
     const body = await req.json().catch(() => ({}));

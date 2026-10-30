@@ -15,6 +15,24 @@ const rows: { today: string; who: string; next: string; how: string }[] = [
   { today: "Første sak sendes etter at alt over er ferdig", who: "Kunden", next: "Første sak sendes i samme flyt, med kravkontroll", how: "Minutter" },
 ];
 
+const todayJourney = [
+  { t: "«Bli kunde»-skjema", d: "Org.nr, ERP (fritekst), kontonummer, kontaktperson, type krav. Aksept av avtale og signaturrett med en avkryssing." },
+  { t: "Venter på kundenummer og aktiverings-e-post", d: "Ukjent ventetid. Mangler e-posten, må kunden ringe eller sende e-post." },
+  { t: "Logger inn i kundeportalen", d: "To portaler side om side: ny kundeportal og Intrum Access." },
+  { t: "Registrerer saken", d: "Din referanse, skyldner, fakturabeløp, innbetalinger som negative linjer, «Omtvistet»." },
+  { t: "Saken synlig neste virkedag", d: "Først da kan kunden legge ved faktura og kommentarer." },
+  { t: "ERP (valgfritt)", d: "I Tripletex: marker faktura, velg Intrum og tast inn kundenummeret manuelt." },
+];
+
+const friction = [
+  "Kan ikke sende en sak før man er kunde – men kravet er grunnen til at kunden kom",
+  "Ingen BankID – signaturrett bekreftes med en avkryssing, ENK skriver personnummer i fritekst",
+  "Avtale og priser bare i en PDF på 7 sider (3 års binding)",
+  "8 % provisjon hvis saken registreres 60+ dager etter forfall – ventetid koster kunden penger",
+  "Vedlegg først etter neste virkedag",
+  "Mange kontaktpunkter: flere telefonnumre og e-postadresser",
+];
+
 export default function Page() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -39,6 +57,42 @@ export default function Page() {
         ))}
       </div>
       <p className="mt-2 text-xs text-ink-soft">Anslag til diskusjon, basert på dagens prosessbeskrivelse.</p>
+
+      <section className="mt-10">
+        <h2 className="text-xl font-semibold">Kundens reise på intrum.no i dag</h2>
+        <p className="text-sm text-ink-soft mt-1">Gjennomgått på intrum.no 30.10.2026. Det som skjer etter at skjemaet sendes inn, er ikke verifisert.</p>
+        <div className="mt-4 grid md:grid-cols-2 gap-4">
+          <ol className="rounded-2xl bg-white ring-1 ring-black/5 p-6 space-y-4 text-sm">
+            {todayJourney.map((j, i) => (
+              <li key={j.t} className="flex gap-3">
+                <span className="size-7 shrink-0 rounded-full bg-black/5 text-ink-soft grid place-items-center text-xs font-semibold">{i + 1}</span>
+                <span>
+                  <span className="font-medium block">{j.t}</span>
+                  <span className="text-ink-soft">{j.d}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="rounded-2xl bg-white ring-1 ring-black/5 p-6 text-sm">
+            <div className="font-semibold">Friksjon kunden møter</div>
+            <ul className="mt-3 space-y-2 text-ink-soft">
+              {friction.map((f) => (
+                <li key={f} className="flex gap-2">
+                  <span className="text-amber-600 font-bold">!</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 text-xs text-ink-soft">
+              Kilder:{" "}
+              <a className="underline" href="https://www.intrum.no/bedriftstjenester/tjenester/inkasso/kjop-inkasso/">bli kunde</a>,{" "}
+              <a className="underline" href="https://www.intrum.no/bedriftstjenester/tjenester/inkasso/slik-sender-du-en-sak-til-inkasso/">slik sender du en sak</a>,{" "}
+              <a className="underline" href="https://www.intrum.no/bedriftstjenester/tjenester/integrasjoner/">integrasjoner</a>,{" "}
+              <a className="underline" href="https://www.tripletex.no/integrasjoner/intrum/">Tripletex</a>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="mt-8 overflow-x-auto rounded-2xl bg-white ring-1 ring-black/5">
         <table className="w-full text-sm min-w-[720px]">

@@ -125,6 +125,17 @@ export async function ocr(id: string, fileName: string, size: number) {
   return integrations.invoiceOcr(fileName, size, id);
 }
 
+// Faktura først: les fakturaen, finn avsender (kreditor) og fyll ut resten av flyten
+export async function invoiceFirst(id: string, fileName: string, size: number) {
+  await getOnboarding(id);
+  const r = await integrations.invoiceOcr(fileName, size, id);
+  const o = await setCompany(id, r.creditor.orgNr);
+  // Kontonummeret på fakturaen verifiseres mot Kontoregisteret i neste steg
+  const account = (await integrations.kontoregisterLookup(r.creditor.orgNr, id)).accounts[0];
+  const prefill = { fileName, confidence: r.confidence, accountNumber: account, debtor: r.debtor, invoice: r.invoice };
+  return (await db.update<Onboarding>("onboardings", o.id, { prefill }))!;
+}
+
 export async function lookupDebtor(id: string, orgNr: string) {
   await getOnboarding(id);
   if (!isValidOrgNr(orgNr)) throw new UserError("Ugyldig organisasjonsnummer for skyldner");
@@ -132,7 +143,12 @@ export async function lookupDebtor(id: string, orgNr: string) {
   return { name: c.name, address: `${c.address.street}, ${c.address.postalCode} ${c.address.city}`, status: c.status };
 }
 
-export async function saveCase(id: string, input: Pick<DebtCase, "debtor" | "invoice" | "reminderAlreadySent" | "source">) {
+type CaseInput = Pick<
+  DebtCase,
+  "debtor" | "invoice" | "reminderAlreadySent" | "source" | "reference" | "claimType" | "payments" | "notice" | "attachments" | "disputed" | "disputeNote"
+> & { confirmed?: boolean };
+
+export async function saveCase(id: string, input: CaseInput) {
   const o = await getOnboarding(id);
   if (!o.agreement) throw new UserError("Avtalen må signeres først");
   const { debtor, invoice } = input;
@@ -146,9 +162,16 @@ export async function saveCase(id: string, input: Pick<DebtCase, "debtor" | "inv
     throw new UserError("Forfallsdato må ha passert før saken kan sendes til inkasso");
   }
   if (invoice.issueDate && invoice.issueDate > invoice.dueDate) throw new UserError("Fakturadato kan ikke være etter forfallsdato");
+  if (!input.confirmed) throw new UserError("Bekreft at kravet er riktig og at du stopper egne purringer");
+  if (input.disputed && !input.disputeNote?.trim()) throw new UserError("Beskriv kort hva skyldner har protestert på");
+  const payments = (input.payments ?? [])
+    .filter((p) => Number(p.amount) > 0 && p.date)
+    .map((p) => ({ date: p.date, amount: Number(p.amount), type: p.type === "kreditnota" ? ("kreditnota" as const) : ("innbetaling" as const) }));
+  const outstanding = Math.round((amount - payments.reduce((s, p) => s + p.amount, 0)) * 100) / 100;
 
   const caseId = o.draftCaseId ?? newId("case");
-  const claimCheck = await runClaimChecks(o, { ...input, invoice: { ...invoice, amount } }, { onboardingId: id, excludeCaseId: caseId });
+  const claimCheck = await runClaimChecks(o, { ...input, payments, invoice: { ...invoice, amount } }, { onboardingId: id, excludeCaseId: caseId });
+  const noticeOk = claimCheck.checks.some((c) => c.key === "notice" && c.status === "ok");
 
   const data: DebtCase = {
     onboardingId: id,
@@ -160,7 +183,19 @@ export async function saveCase(id: string, input: Pick<DebtCase, "debtor" | "inv
     debtor: { ...debtor, orgNr: debtor.orgNr ? cleanDigits(debtor.orgNr) : undefined, name: debtor.name.trim() },
     invoice: { ...invoice, amount },
     reminderAlreadySent: Boolean(input.reminderAlreadySent),
-    nextAction: input.reminderAlreadySent ? "Betalingsoppfordring sendes skyldner" : "Inkassovarsel sendes skyldner (14 dagers frist)",
+    reference: input.reference?.trim() || undefined,
+    claimType: input.claimType ?? "faktura",
+    payments,
+    outstanding,
+    notice: input.reminderAlreadySent ? input.notice : undefined,
+    attachments: input.attachments ?? [],
+    disputed: Boolean(input.disputed),
+    disputeNote: input.disputed ? input.disputeNote?.trim() : undefined,
+    nextAction: input.disputed
+      ? "Saksbehandler vurderer innsigelsen før saken går videre"
+      : noticeOk
+        ? "Betalingsoppfordring sendes skyldner i dag"
+        : "Inkassovarsel sendes skyldner i dag (14 dagers frist)",
   };
   const existing = o.draftCaseId ? await db.get<DebtCase>("cases", caseId) : null;
   const saved = existing ? await db.update<DebtCase>("cases", caseId, data) : await db.insert<DebtCase>("cases", caseId, data);

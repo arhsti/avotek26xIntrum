@@ -269,12 +269,16 @@ export function kontoregisterVerify(orgNr: string, accountNumber: string, onboar
 export function invoiceOcr(fileName: string, size: number, onboardingId?: string) {
   return call("Faktura-OCR", "POST /extract", onboardingId, { fileName, size }, [1200, 2200], () => {
     const h = hash(fileName + size + Date.now());
-    const debtorOrgNr = pick(DEMO_ORGNR.debtors, h);
+    // Avsender: et gyldig org.nr i filnavnet (for demo), ellers standard testbedrift
+    const fromName = fileName.match(/\d{9}/)?.[0];
+    const creditorOrgNr = fromName && isValidOrgNr(fromName) ? fromName : DEMO_ORGNR.happyPath;
+    const debtorOrgNr = pick(DEMO_ORGNR.debtors.filter((d) => d !== creditorOrgNr), h);
     const debtor = COMPANIES[debtorOrgNr];
     const due = new Date(Date.now() - (30 + (h % 40)) * 86400000);
     const issue = new Date(due.getTime() - 14 * 86400000);
     return {
       confidence: 0.94,
+      creditor: { orgNr: creditorOrgNr },
       debtor: { type: "company" as const, orgNr: debtorOrgNr, name: debtor.name, address: `${debtor.address.street}, ${debtor.address.postalCode} ${debtor.address.city}` },
       invoice: {
         number: String(10000 + (h % 89999)),
@@ -322,7 +326,8 @@ export const provision = {
 
 // ---------- ERP ----------
 
-export const ERP_SYSTEMS = ["Tripletex", "Fiken", "PowerOffice Go", "Visma eAccounting", "Xledger", "24SevenOffice"];
+// Integrasjoner Intrum lister i dag, pluss Fiken som mulig ny partner
+export const ERP_SYSTEMS = ["Tripletex", "PowerOffice Go", "Visma", "Xledger", "24SevenOffice", "Fiken"];
 
 export function erpConnect(system: string, orgNr: string, onboardingId: string) {
   return call(system, "OAuth2 consent + webhook-abonnement (forfalte fakturaer)", onboardingId, { system, orgNr }, [900, 1600], () => {
